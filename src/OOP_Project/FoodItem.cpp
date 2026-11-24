@@ -1,5 +1,7 @@
 
 #include "FoodItem.h"
+#include <ctime>
+#include <string>
 #include <iostream>
 #include <stdexcept>
 
@@ -45,6 +47,16 @@ void FoodItem::setFoodCategory(string foodCategory) {
     }
 
     this->foodCategory = foodCategory;
+}
+
+bool FoodItem::isExpired() const {
+    time_t now = time(nullptr);
+    tm* currentTime = localtime(&now);
+
+    char today[11];
+    strftime(today, sizeof(today), "%Y-%m-%d", currentTime);
+
+    return expiryDate < string(today);
 }
 
 // Display food item details
