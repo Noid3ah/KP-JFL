@@ -26,7 +26,8 @@ public:
     void setExpiryDate(string expiryDate);
     void setFoodCategory(string foodCategory);
 
-    // Override abstract method
+    bool isExpired() const;
+
     void displayDetails() const override;
 };
 

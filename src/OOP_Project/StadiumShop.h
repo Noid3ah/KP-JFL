@@ -2,7 +2,6 @@
 #ifndef STADIUMSHOP_H
 #define STADIUMSHOP_H
 
-#include <vector>
 #include <string>
 #include "Product.h"
 
@@ -10,7 +9,10 @@ using namespace std;
 
 class StadiumShop {
 private:
-    vector<Product*> inventory;
+    static const int MAX_PRODUCTS = 100;
+
+    Product* inventory[MAX_PRODUCTS];
+    int productCount;
 
 public:
     // Constructor and destructor
@@ -27,7 +29,20 @@ public:
     // Inventory information
     int getInventorySize() const;
 
-    
+    // Customer transactions
+    void processTransaction(string productIds[], int quantities[],
+                            int numberOfItems, double payment);
+    // File handling
+    void saveInventory(string filename = "shop_inventory.csv");
+    void loadInventory(string filename = "shop_inventory.csv");
+
+    // Management reports
+    void generateInventoryReport() const;
+    void generateLowStockReport(int threshold) const;
+    void generateInventoryValuationReport() const;
+
 };
+
+
 
 #endif
