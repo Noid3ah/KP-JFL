@@ -4,36 +4,38 @@
 #include "FootballTeam.h"
 #include "Fixture.h"
 
+using namespace std;
+
 // The commissioner handles team approvals, suspensions, and pre-match checks.
 class LeagueCommissioner : public Person {
 public:
-    LeagueCommissioner(const std::string& id, const std::string& name, int age, const std::string& gender)
+    LeagueCommissioner(const string& id, const string& name, int age, const string& gender)
         : Person(id, name, age, gender) {}
 
     void approveTeam(FootballTeam& team) const {
         team.setRegistered(true);
-        std::cout << "Commissioner " << getName() << " approved and registered team " << team.getName() << "\n";
+        cout << "Commissioner " << getName() << " approved and registered team " << team.getName() << "\n";
     }
 
     void suspendTeam(FootballTeam& team, bool suspended = true) const {
         team.setSuspended(suspended);
-        std::cout << "Commissioner " << getName() << (suspended ? " suspended " : " reinstated ")
+        cout << "Commissioner " << getName() << (suspended ? " suspended " : " reinstated ")
                   << team.getName() << "\n";
     }
 
     bool inspectMatch(const Fixture& fixture) const {
         const bool ready = !fixture.getOfficials().empty();
-        std::cout << "Inspection of " << fixture.getFixtureId() << " by Commissioner " << getName() << ": ";
+        cout << "Inspection of " << fixture.getFixtureId() << " by Commissioner " << getName() << ": ";
         if (ready) {
-            std::cout << "READY (Officials assigned)\n";
+            cout << "READY (Officials assigned)\n";
         } else {
-            std::cout << "NOT READY (No officials assigned)\n";
+            cout << "NOT READY (No officials assigned)\n";
         }
         return ready;
     }
 
     void displayInfo() const override {
-        std::cout << "[LeagueCommissioner] ID: " << id << " | Name: " << name
+        cout << "[LeagueCommissioner] ID: " << id << " | Name: " << name
                   << " | Age: " << age << " | Gender: " << gender << "\n";
     }
 };

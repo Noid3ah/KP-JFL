@@ -4,36 +4,38 @@
 #include <iomanip>
 #include "Product.h"
 
+using namespace std;
+
 // Club gear sold in the shop — jerseys, caps, scarves, etc.
 // Linked to a specific team or to the league in general.
 class Merchandise : public Product {
 private:
-    std::string size;        ///< Clothing or item size, such as S, M, L, XL, or Standard.
-    std::string teamRegNo;   ///< Team registration number, or "League" for general merchandise.
-    std::string material;    ///< Material description such as Polyester or Cotton.
+    string size;        ///< Clothing or item size, such as S, M, L, XL, or Standard.
+    string teamRegNo;   ///< Team registration number, or "League" for general merchandise.
+    string material;    ///< Material description such as Polyester or Cotton.
 
 public:
     // team defaults to "League" and material to Polyester if not specified
-    Merchandise(const std::string& id, const std::string& name, double price, int stock,
-                const std::string& size, const std::string& teamRegNo = "League",
-                const std::string& material = "Polyester")
+    Merchandise(const string& id, const string& name, double price, int stock,
+                const string& size, const string& teamRegNo = "League",
+                const string& material = "Polyester")
         : Product(id, name, price, stock, "Merchandise"),
           size(size), teamRegNo(teamRegNo), material(material) {
         // '|' separates fields in the save file, so it can't appear inside one
-        if ((size + teamRegNo + material).find_first_of("|\r\n") != std::string::npos) {
-            throw std::invalid_argument("Product details cannot contain '|' or line breaks.");
+        if ((size + teamRegNo + material).find_first_of("|\r\n") != string::npos) {
+            throw invalid_argument("Product details cannot contain '|' or line breaks.");
         }
     }
 
-    const std::string& getSize() const { return size; }
-    const std::string& getTeamRegNo() const { return teamRegNo; }
-    const std::string& getMaterial() const { return material; }
+    const string& getSize() const { return size; }
+    const string& getTeamRegNo() const { return teamRegNo; }
+    const string& getMaterial() const { return material; }
 
     void displayProduct() const override {
-        std::cout << "  [Merch] #" << productId << " | " << std::left << std::setw(24) << name
-                  << " | Size: " << std::setw(8) << size
-                  << " | Team: " << std::setw(8) << teamRegNo
-                  << " | Stock: " << std::right << std::setw(4) << stockQuantity
-                  << " | Price: JMD $" << std::fixed << std::setprecision(2) << unitPrice << "\n";
+        cout << "  [Merch] #" << productId << " | " << left << setw(24) << name
+                  << " | Size: " << setw(8) << size
+                  << " | Team: " << setw(8) << teamRegNo
+                  << " | Stock: " << right << setw(4) << stockQuantity
+                  << " | Price: JMD $" << fixed << setprecision(2) << unitPrice << "\n";
     }
 };

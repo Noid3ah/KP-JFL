@@ -5,6 +5,8 @@
 #include "exceptions.h"
 #include "Spectator.h"
 
+using namespace std;
+
 /// Available seating categories for a match ticket.
 enum class TicketCategory {
     BLEACHERS,
@@ -13,7 +15,7 @@ enum class TicketCategory {
     ULTRA_VIP
 };
 
-inline std::string ticketCategoryToString(TicketCategory cat) {
+inline string ticketCategoryToString(TicketCategory cat) {
     switch (cat) {
         case TicketCategory::BLEACHERS: return "Bleachers";
         case TicketCategory::GRANDSTAND: return "Grandstand";
@@ -23,12 +25,12 @@ inline std::string ticketCategoryToString(TicketCategory cat) {
     }
 }
 
-inline TicketCategory ticketCategoryFromString(const std::string& text) {
+inline TicketCategory ticketCategoryFromString(const string& text) {
     for (TicketCategory cat : {TicketCategory::BLEACHERS, TicketCategory::GRANDSTAND,
                                TicketCategory::VIP, TicketCategory::ULTRA_VIP}) {
         if (ticketCategoryToString(cat) == text) return cat;
     }
-    throw std::invalid_argument("unknown ticket category '" + text + "'");
+    throw invalid_argument("unknown ticket category '" + text + "'");
 }
 
 inline double getDefaultCategoryPrice(TicketCategory cat) {
@@ -45,33 +47,33 @@ inline double getDefaultCategoryPrice(TicketCategory cat) {
 // Trying to sell an already-sold ticket will throw.
 class Ticket {
 private:
-    std::string ticketId;
-    std::string fixtureId;
-    std::string stadiumId;
-    std::string seatNumber;
+    string ticketId;
+    string fixtureId;
+    string stadiumId;
+    string seatNumber;
     TicketCategory category;
     double price;
-    std::string spectatorId;
+    string spectatorId;
     bool isSold = false;
 
 public:
-    Ticket(const std::string& ticketId, const std::string& fixtureId, const std::string& stadiumId,
-           const std::string& seatNumber, TicketCategory category, double price = 0.0)
+    Ticket(const string& ticketId, const string& fixtureId, const string& stadiumId,
+           const string& seatNumber, TicketCategory category, double price = 0.0)
         : ticketId(ticketId), fixtureId(fixtureId), stadiumId(stadiumId),
           seatNumber(seatNumber), category(category),
           price(price <= 0.0 ? getDefaultCategoryPrice(category) : price) {
         if (ticketId.empty() || fixtureId.empty() || stadiumId.empty()) {
-            throw std::invalid_argument("Ticket requires ID, fixture ID, and stadium ID");
+            throw invalid_argument("Ticket requires ID, fixture ID, and stadium ID");
         }
     }
 
-    const std::string& getTicketId() const { return ticketId; }
-    const std::string& getFixtureId() const { return fixtureId; }
-    const std::string& getStadiumId() const { return stadiumId; }
-    const std::string& getSeatNumber() const { return seatNumber; }
+    const string& getTicketId() const { return ticketId; }
+    const string& getFixtureId() const { return fixtureId; }
+    const string& getStadiumId() const { return stadiumId; }
+    const string& getSeatNumber() const { return seatNumber; }
     TicketCategory getCategory() const { return category; }
     double getPrice() const { return price; }
-    const std::string& getSpectatorId() const { return spectatorId; }
+    const string& getSpectatorId() const { return spectatorId; }
     bool getIsSold() const { return isSold; }
 
     void sellTo(Spectator& spectator) {
@@ -84,9 +86,9 @@ public:
     }
 
     void displayInfo() const {
-        std::cout << "Ticket #" << ticketId << " | Fixture: " << fixtureId
+        cout << "Ticket #" << ticketId << " | Fixture: " << fixtureId
                   << " | Seat: " << seatNumber << " | Cat: " << ticketCategoryToString(category)
-                  << " | Price: $" << std::fixed << std::setprecision(2) << price
+                  << " | Price: $" << fixed << setprecision(2) << price
                   << " | " << (isSold ? ("Sold to " + spectatorId) : "Available") << "\n";
     }
 };

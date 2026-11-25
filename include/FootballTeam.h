@@ -8,6 +8,8 @@
 #include "Coach.h"
 #include "exceptions.h"
 
+using namespace std;
+
 /**
  * Represents one registered football club in the league.
  *
@@ -19,9 +21,9 @@
 class FootballTeam {
 private:
     // Identity and league status.
-    std::string regNumber;
-    std::string name;
-    std::string homeCity;
+    string regNumber;
+    string name;
+    string homeCity;
     bool registered = false;
     bool suspended = false;
 
@@ -35,30 +37,30 @@ private:
     int points = 0;
 
     // Personnel belonging to this club.
-    std::vector<Player> squad;
-    std::vector<Coach> coachingStaff;
+    vector<Player> squad;
+    vector<Coach> coachingStaff;
 
 public:
     // reg number and name are both required — throws if either is blank
-    FootballTeam(const std::string& regNumber, const std::string& name, const std::string& city = "Kingston")
+    FootballTeam(const string& regNumber, const string& name, const string& city = "Kingston")
         : regNumber(regNumber), name(name), homeCity(city) {
         if (regNumber.empty() || name.empty()) {
-            throw std::invalid_argument("Team registration number and name cannot be empty");
+            throw invalid_argument("Team registration number and name cannot be empty");
         }
         // '|' separates fields in the save file, so it can't appear inside one
-        if ((regNumber + name + city).find_first_of("|\r\n") != std::string::npos) {
-            throw std::invalid_argument("Team details cannot contain '|' or line breaks.");
+        if ((regNumber + name + city).find_first_of("|\r\n") != string::npos) {
+            throw invalid_argument("Team details cannot contain '|' or line breaks.");
         }
     }
 
-    const std::string& getRegNumber() const { return regNumber; }
-    const std::string& getName() const { return name; }
-    const std::string& getHomeCity() const { return homeCity; }
+    const string& getRegNumber() const { return regNumber; }
+    const string& getName() const { return name; }
+    const string& getHomeCity() const { return homeCity; }
     bool isRegistered() const { return registered; }
     bool isSuspended() const { return suspended; }
     void setRegistered(bool r) { registered = r; }
     void setSuspended(bool s) { suspended = s; }
-    void setHomeCity(const std::string& city) { homeCity = city; }
+    void setHomeCity(const string& city) { homeCity = city; }
     int getPlayed() const { return played; }
     int getWins() const { return wins; }
     int getDraws() const { return draws; }
@@ -83,7 +85,7 @@ public:
     // restores a saved league record
     void setRecord(int p, int w, int d, int l, int gf, int ga, int pts) {
         if (w < 0 || d < 0 || l < 0 || gf < 0 || ga < 0 || pts < 0 || p != w + d + l) {
-            throw std::invalid_argument("Invalid league record for team " + name + ".");
+            throw invalid_argument("Invalid league record for team " + name + ".");
         }
         played = p; wins = w; draws = d; losses = l;
         goalsFor = gf; goalsAgainst = ga; points = pts;
@@ -97,7 +99,7 @@ public:
                 throw DuplicatePersonException("Player with ID " + player.getId() + " already in squad");
             }
             if (p.getJerseyNumber() == player.getJerseyNumber()) {
-                throw PersonnelException("Jersey #" + std::to_string(player.getJerseyNumber()) + " is already taken by " + p.getName());
+                throw PersonnelException("Jersey #" + to_string(player.getJerseyNumber()) + " is already taken by " + p.getName());
             }
         }
         Player copy = player;
@@ -106,8 +108,8 @@ public:
     }
 
     // removes a player by ID, returns false if no match found
-    bool removePlayer(const std::string& playerId) {
-        auto it = std::find_if(squad.begin(), squad.end(), [&](const Player& p) {
+    bool removePlayer(const string& playerId) {
+        auto it = find_if(squad.begin(), squad.end(), [&](const Player& p) {
             return p.getId() == playerId;
         });
         if (it != squad.end()) {
@@ -119,14 +121,14 @@ public:
 
     // updates a player's details; ID, gender, team and goals are kept
     // everything is validated before anything changes, returns false if no match found
-    bool updatePlayer(const std::string& playerId, const std::string& name, int age,
-                      const std::string& position, int jerseyNumber, const std::string& status) {
+    bool updatePlayer(const string& playerId, const string& name, int age,
+                      const string& position, int jerseyNumber, const string& status) {
         Player* existing = findPlayer(playerId);
         if (!existing) return false;
 
         for (const auto& p : squad) {
             if (p.getId() != playerId && p.getJerseyNumber() == jerseyNumber) {
-                throw PersonnelException("Jersey #" + std::to_string(jerseyNumber) + " is already taken by " + p.getName());
+                throw PersonnelException("Jersey #" + to_string(jerseyNumber) + " is already taken by " + p.getName());
             }
         }
         if (status != "Active" && status != "Injured" && status != "Benched" && status != "Suspended") {
@@ -143,7 +145,7 @@ public:
 
     // looks up a player by ID — returns nullptr if not found
     // don't hold onto this pointer after modifying the squad
-    Player* findPlayer(const std::string& playerId) {
+    Player* findPlayer(const string& playerId) {
         for (auto& p : squad) {
             if (p.getId() == playerId) return &p;
         }
@@ -164,8 +166,8 @@ public:
 
     // updates a coach's details; ID, gender and team are kept
     // everything is validated before anything changes, returns false if no match found
-    bool updateCoach(const std::string& coachId, const std::string& name, int age,
-                     const std::string& qualification, const std::string& role, int yearsExperience) {
+    bool updateCoach(const string& coachId, const string& name, int age,
+                     const string& qualification, const string& role, int yearsExperience) {
         for (auto& c : coachingStaff) {
             if (c.getId() != coachId) continue;
             // rebuilding through the constructor reuses its name and age rules
@@ -176,8 +178,8 @@ public:
     }
 
     // removes a coach by ID, returns false if not found
-    bool removeCoach(const std::string& coachId) {
-        auto it = std::find_if(coachingStaff.begin(), coachingStaff.end(), [&](const Coach& c) {
+    bool removeCoach(const string& coachId) {
+        auto it = find_if(coachingStaff.begin(), coachingStaff.end(), [&](const Coach& c) {
             return c.getId() == coachId;
         });
         if (it != coachingStaff.end()) {
@@ -187,30 +189,30 @@ public:
         return false;
     }
 
-    const std::vector<Player>& getSquad() const { return squad; }
-    std::vector<Player>& getSquad() { return squad; }
-    const std::vector<Coach>& getCoachingStaff() const { return coachingStaff; }
-    std::vector<Coach>& getCoachingStaff() { return coachingStaff; }
+    const vector<Player>& getSquad() const { return squad; }
+    vector<Player>& getSquad() { return squad; }
+    const vector<Coach>& getCoachingStaff() const { return coachingStaff; }
+    vector<Coach>& getCoachingStaff() { return coachingStaff; }
 
     // prints team info, record, coaches and full squad to the console
     void displayTeamInfo() const {
-        std::cout << "\n========================================\n";
-        std::cout << "Team: " << name << " (" << regNumber << ") - City: " << homeCity << "\n";
-        std::cout << "Status: " << (registered ? "Registered" : "Unregistered")
+        cout << "\n========================================\n";
+        cout << "Team: " << name << " (" << regNumber << ") - City: " << homeCity << "\n";
+        cout << "Status: " << (registered ? "Registered" : "Unregistered")
                   << (suspended ? " [SUSPENDED]" : " [ACTIVE]") << "\n";
-        std::cout << "Record: Played" << played << " Wins" << wins << " Draws" << draws << " Losses" << losses
+        cout << "Record: Played" << played << " Wins" << wins << " Draws" << draws << " Losses" << losses
                   << " | GF: " << goalsFor << " GA: " << goalsAgainst
                   << " GD: " << getGoalDifference() << " Pts: " << points << "\n";
 
-        std::cout << "-- Coaches (" << coachingStaff.size() << ") --\n";
+        cout << "-- Coaches (" << coachingStaff.size() << ") --\n";
         for (const auto& c : coachingStaff) {
             c.displayInfo();
         }
 
-        std::cout << "-- Squad (" << squad.size() << " players) --\n";
+        cout << "-- Squad (" << squad.size() << " players) --\n";
         for (const auto& p : squad) {
             p.displayInfo();
         }
-        std::cout << "========================================\n";
+        cout << "========================================\n";
     }
 };

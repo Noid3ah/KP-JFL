@@ -11,13 +11,15 @@
 #include "Stadium.h"
 #include "Ticket.h"
 
+using namespace std;
+
 // tracks whether a match is still upcoming or has been played
 enum class FixtureStatus { SCHEDULED, COMPLETED };
 
 // checks that text matches a pattern where 'd' stands for any digit
-inline bool matchesDigits(const std::string& text, const std::string& pattern) {
+inline bool matchesDigits(const string& text, const string& pattern) {
     if (text.size() != pattern.size()) return false;
-    for (std::size_t i = 0; i < text.size(); ++i) {
+    for (size_t i = 0; i < text.size(); ++i) {
         const bool digit = text[i] >= '0' && text[i] <= '9';
         if (pattern[i] == 'd' ? !digit : text[i] != pattern[i]) return false;
     }
@@ -25,11 +27,11 @@ inline bool matchesDigits(const std::string& text, const std::string& pattern) {
 }
 
 // a real calendar date as YYYY-MM-DD
-inline bool isValidDate(const std::string& date) {
+inline bool isValidDate(const string& date) {
     if (!matchesDigits(date, "dddd-dd-dd")) return false;
-    const int year = std::stoi(date.substr(0, 4));
-    const int month = std::stoi(date.substr(5, 2));
-    const int day = std::stoi(date.substr(8, 2));
+    const int year = stoi(date.substr(0, 4));
+    const int month = stoi(date.substr(5, 2));
+    const int day = stoi(date.substr(8, 2));
     if (year < 1 || month < 1 || month > 12) return false;
     const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     const int days[] = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -37,27 +39,27 @@ inline bool isValidDate(const std::string& date) {
 }
 
 // a 24-hour time as HH:MM
-inline bool isValidTime(const std::string& time) {
-    return matchesDigits(time, "dd:dd") && std::stoi(time.substr(0, 2)) < 24 && std::stoi(time.substr(3, 2)) < 60;
+inline bool isValidTime(const string& time) {
+    return matchesDigits(time, "dd:dd") && stoi(time.substr(0, 2)) < 24 && stoi(time.substr(3, 2)) < 60;
 }
 
 // One scheduled match — holds pointers to the two teams and the venue.
 // Owns the result and ticket objects for this game.
 class Fixture {
 private:
-    std::string fixtureId;
-    std::string date;
-    std::string time;
+    string fixtureId;
+    string date;
+    string time;
     FootballTeam* home;
     FootballTeam* away;
     Stadium* stadium;
-    std::vector<MatchOfficial*> officials;
+    vector<MatchOfficial*> officials;
     FixtureStatus status;
-    std::unique_ptr<MatchResult> result;
-    std::vector<Ticket> tickets;
+    unique_ptr<MatchResult> result;
+    vector<Ticket> tickets;
 
 public:
-    Fixture(const std::string& id, const std::string& date, const std::string& time,
+    Fixture(const string& id, const string& date, const string& time,
             FootballTeam* home, FootballTeam* away, Stadium* stadium)
         : fixtureId(id),
           date(date),
@@ -67,17 +69,17 @@ public:
           stadium(stadium),
           status(FixtureStatus::SCHEDULED) {
         if (home == nullptr || away == nullptr || stadium == nullptr) {
-            throw std::invalid_argument("Fixture needs two teams and a stadium");
+            throw invalid_argument("Fixture needs two teams and a stadium");
         }
         if (home == away) {
-            throw std::invalid_argument("A team cannot play itself");
+            throw invalid_argument("A team cannot play itself");
         }
         if (date.empty() || time.empty()) {
-            throw std::invalid_argument("Fixture needs a date and time");
+            throw invalid_argument("Fixture needs a date and time");
         }
         // '|' separates fields in the save file, so it can't appear inside one
-        if ((date + time).find_first_of("|\r\n") != std::string::npos) {
-            throw std::invalid_argument("Fixture details cannot contain '|' or line breaks.");
+        if ((date + time).find_first_of("|\r\n") != string::npos) {
+            throw invalid_argument("Fixture details cannot contain '|' or line breaks.");
         }
 
         // let the stadium know these teams are playing there
@@ -85,16 +87,16 @@ public:
         stadium->assignTeam(away->getRegNumber());
     }
 
-    const std::string& getFixtureId() const { return fixtureId; }
-    const std::string& getDate() const { return date; }
-    const std::string& getTime() const { return time; }
+    const string& getFixtureId() const { return fixtureId; }
+    const string& getDate() const { return date; }
+    const string& getTime() const { return time; }
     FootballTeam& getHome() const { return *home; }
     FootballTeam& getAway() const { return *away; }
     Stadium& getStadium() const { return *stadium; }
     FixtureStatus getStatus() const { return status; }
-    const std::vector<MatchOfficial*>& getOfficials() const { return officials; }
+    const vector<MatchOfficial*>& getOfficials() const { return officials; }
     const MatchResult* getResult() const { return result.get(); }
-    const std::vector<Ticket>& getTickets() const { return tickets; }
+    const vector<Ticket>& getTickets() const { return tickets; }
 
     bool sameSlot(const Fixture& other) const {
         return date == other.date && time == other.time;
@@ -111,7 +113,7 @@ public:
 
     void addOfficial(MatchOfficial* official) {
         if (official == nullptr) {
-            throw std::invalid_argument("Official cannot be null");
+            throw invalid_argument("Official cannot be null");
         }
         if (status == FixtureStatus::COMPLETED) {
             throw LeagueException("Cannot assign an official to completed fixture " + fixtureId);
@@ -146,8 +148,8 @@ public:
     void generateTickets(int bleacherCount, int grandstandCount, int vipCount) {
         int total = bleacherCount + grandstandCount + vipCount;
         if (total > stadium->getSeatingCapacity()) {
-            throw CapacityExceededException("Total tickets requested (" + std::to_string(total)
-                                            + ") exceeds stadium capacity (" + std::to_string(stadium->getSeatingCapacity()) + ")");
+            throw CapacityExceededException("Total tickets requested (" + to_string(total)
+                                            + ") exceeds stadium capacity (" + to_string(stadium->getSeatingCapacity()) + ")");
         }
 
         // regenerating would erase tickets people have already bought
@@ -158,21 +160,21 @@ public:
         tickets.clear();
         int tIndex = 1;
         for (int i = 0; i < bleacherCount; ++i) {
-            tickets.emplace_back("TK" + std::to_string(tIndex++), fixtureId, stadium->getStadiumId(),
-                                 "BL-" + std::to_string(i + 1), TicketCategory::BLEACHERS);
+            tickets.emplace_back("TK" + to_string(tIndex++), fixtureId, stadium->getStadiumId(),
+                                 "BL-" + to_string(i + 1), TicketCategory::BLEACHERS);
         }
         for (int i = 0; i < grandstandCount; ++i) {
-            tickets.emplace_back("TK" + std::to_string(tIndex++), fixtureId, stadium->getStadiumId(),
-                                 "GS-" + std::to_string(i + 1), TicketCategory::GRANDSTAND);
+            tickets.emplace_back("TK" + to_string(tIndex++), fixtureId, stadium->getStadiumId(),
+                                 "GS-" + to_string(i + 1), TicketCategory::GRANDSTAND);
         }
         for (int i = 0; i < vipCount; ++i) {
-            tickets.emplace_back("TK" + std::to_string(tIndex++), fixtureId, stadium->getStadiumId(),
-                                 "VIP-" + std::to_string(i + 1), TicketCategory::VIP);
+            tickets.emplace_back("TK" + to_string(tIndex++), fixtureId, stadium->getStadiumId(),
+                                 "VIP-" + to_string(i + 1), TicketCategory::VIP);
         }
     }
 
     // puts back saved tickets — no capacity check, since capacity may have changed after they were issued
-    void restoreTickets(const std::vector<Ticket>& saved) { tickets = saved; }
+    void restoreTickets(const vector<Ticket>& saved) { tickets = saved; }
 
     Ticket* sellTicket(TicketCategory cat, Spectator& spectator) {
         int soldCount = 0;
@@ -197,7 +199,7 @@ public:
         if (status == FixtureStatus::COMPLETED) {
             throw LeagueException("Fixture " + fixtureId + " is already completed");
         }
-        result = std::make_unique<MatchResult>(matchResult);
+        result = make_unique<MatchResult>(matchResult);
     }
 
     void complete() {
@@ -208,22 +210,22 @@ public:
     }
 
     void display() const {
-        std::cout << fixtureId << " | " << date << " " << time << " | "
+        cout << fixtureId << " | " << date << " " << time << " | "
                   << home->getName() << " vs " << away->getName() << " @ " << stadium->getName()
                   << " | Officials: " << officials.size() << " | ";
 
         if (result != nullptr) {
-            std::cout << result->getHomeScore() << "-" << result->getAwayScore() << " ";
+            cout << result->getHomeScore() << "-" << result->getAwayScore() << " ";
         }
 
         if (status == FixtureStatus::COMPLETED) {
-            std::cout << "[Completed]";
+            cout << "[Completed]";
         } else {
-            std::cout << "[Scheduled]";
+            cout << "[Scheduled]";
         }
 
         int soldCount = 0;
         for (const auto& t : tickets) if (t.getIsSold()) ++soldCount;
-        std::cout << " | Tickets Sold: " << soldCount << "/" << tickets.size() << "\n";
+        cout << " | Tickets Sold: " << soldCount << "/" << tickets.size() << "\n";
     }
 };

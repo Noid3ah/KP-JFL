@@ -5,6 +5,8 @@
 #include <fstream>
 #include <sstream>
 
+using namespace std;
+
 /// Role-based access level used to route a signed-in user to the appropriate menu.
 enum class UserRole {
     ADMIN_ALL,               // Full System Admin
@@ -16,16 +18,16 @@ enum class UserRole {
 
 /// Credentials and display metadata for one application account.
 struct UserAccount {
-    std::string username;
-    std::string password;
+    string username;
+    string password;
     UserRole    role;
-    std::string displayName;
+    string displayName;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers: convert between UserRole and its string tag stored in the file
 // ─────────────────────────────────────────────────────────────────────────────
-inline std::string roleToString(UserRole r) {
+inline string roleToString(UserRole r) {
     switch (r) {
         case UserRole::ADMIN_ALL:            return "ADMIN_ALL";
         case UserRole::LEAGUE_COMMISSIONER:  return "LEAGUE_COMMISSIONER";
@@ -36,7 +38,7 @@ inline std::string roleToString(UserRole r) {
     }
 }
 
-inline UserRole roleFromString(const std::string& s) {
+inline UserRole roleFromString(const string& s) {
     if (s == "ADMIN_ALL")           return UserRole::ADMIN_ALL;
     if (s == "LEAGUE_COMMISSIONER") return UserRole::LEAGUE_COMMISSIONER;
     if (s == "TEAM_MANAGER")        return UserRole::TEAM_MANAGER;
@@ -62,13 +64,13 @@ inline UserRole roleFromString(const std::string& s) {
  */
 class AuthService {
 private:
-    std::unordered_map<std::string, UserAccount> users;
-    std::string usersFile = "kpfl_users.txt";
+    unordered_map<string, UserAccount> users;
+    string usersFile = "kpfl_users.txt";
 
     // ── Seed the built-in demo accounts ──────────────────────────────────────
     void seedDefaults() {
-        auto add = [&](const std::string& u, const std::string& p,
-                       UserRole r, const std::string& name) {
+        auto add = [&](const string& u, const string& p,
+                       UserRole r, const string& name) {
             if (users.find(u) == users.end())   // don't overwrite file version
                 users[u] = {u, p, r, name};
         };
@@ -89,7 +91,7 @@ public:
 
     // ── Persist: write every account to kpfl_users.txt ───────────────────────
     void saveUsers() const {
-        std::ofstream file(usersFile);
+        ofstream file(usersFile);
         if (!file.is_open()) return;   // silently skip if path is unwritable
 
         file << "# KPFL Login Accounts — format: username|password|role|displayName\n";
@@ -105,19 +107,19 @@ public:
 
     // ── Load: read kpfl_users.txt and populate the in-memory table ───────────
     void loadUsers() {
-        std::ifstream file(usersFile);
+        ifstream file(usersFile);
         if (!file.is_open()) return;   // first run — file doesn't exist yet
 
-        std::string line;
-        while (std::getline(file, line)) {
+        string line;
+        while (getline(file, line)) {
             if (line.empty() || line[0] == '#') continue;   // skip comments
 
-            std::stringstream ss(line);
-            std::string uname, pwd, roleStr, name;
-            if (!std::getline(ss, uname,   '|')) continue;
-            if (!std::getline(ss, pwd,     '|')) continue;
-            if (!std::getline(ss, roleStr, '|')) continue;
-            if (!std::getline(ss, name))         continue;
+            stringstream ss(line);
+            string uname, pwd, roleStr, name;
+            if (!getline(ss, uname,   '|')) continue;
+            if (!getline(ss, pwd,     '|')) continue;
+            if (!getline(ss, roleStr, '|')) continue;
+            if (!getline(ss, name))         continue;
 
             users[uname] = {uname, pwd, roleFromString(roleStr), name};
         }
@@ -125,8 +127,8 @@ public:
     }
 
     // ── Authenticate: return a pointer to the account, or nullptr ────────────
-    const UserAccount* login(const std::string& username,
-                             const std::string& password) const {
+    const UserAccount* login(const string& username,
+                             const string& password) const {
         auto it = users.find(username);
         if (it != users.end() && it->second.password == password)
             return &(it->second);
@@ -135,18 +137,18 @@ public:
 
     // ── Display: print the account table to the console ──────────────────────
     void displayAvailableAccounts() const {
-        std::cout << "\n======================================================\n";
-        std::cout << "                 AVAILABLE DEMO LOGINS               \n";
-        std::cout << "======================================================\n";
-        std::cout << "  Role                     Username    Password       \n";
-        std::cout << "------------------------------------------------------\n";
-        std::cout << "  1. Full Administrator    admin       admin123       \n";
-        std::cout << "  2. League Ops Lead       commish     pass123        \n";
-        std::cout << "  3. Team Manager          manager     pass123        \n";
-        std::cout << "  4. Stadium Coordinator   stadium     pass123        \n";
-        std::cout << "  5. Stadium Shop & Data   shop        pass123        \n";
-        std::cout << "------------------------------------------------------\n";
-        std::cout << "  Credentials are saved in: kpfl_users.txt           \n";
-        std::cout << "======================================================\n\n";
+        cout << "\n======================================================\n";
+        cout << "                 AVAILABLE DEMO LOGINS               \n";
+        cout << "======================================================\n";
+        cout << "  Role                     Username    Password       \n";
+        cout << "------------------------------------------------------\n";
+        cout << "  1. Full Administrator    admin       admin123       \n";
+        cout << "  2. League Ops Lead       commish     pass123        \n";
+        cout << "  3. Team Manager          manager     pass123        \n";
+        cout << "  4. Stadium Coordinator   stadium     pass123        \n";
+        cout << "  5. Stadium Shop & Data   shop        pass123        \n";
+        cout << "------------------------------------------------------\n";
+        cout << "  Credentials are saved in: kpfl_users.txt           \n";
+        cout << "======================================================\n\n";
     }
 };

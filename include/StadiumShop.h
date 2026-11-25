@@ -11,10 +11,12 @@
 #include "FoodItem.h"
 #include "exceptions.h"
 
+using namespace std;
+
 // one line item in a sale
 struct SaleItem {
-    std::string productId;
-    std::string productName;
+    string productId;
+    string productName;
     int quantity;
     double unitPrice;
     double itemTotal;
@@ -22,9 +24,9 @@ struct SaleItem {
 
 // full receipt for a completed sale
 struct Receipt {
-    std::string receiptId;
-    std::string customerName;
-    std::vector<SaleItem> items;
+    string receiptId;
+    string customerName;
+    vector<SaleItem> items;
     double subtotal;
     double gct;      ///< 15% Jamaican General Consumption Tax.
     double totalAmount;
@@ -36,24 +38,24 @@ struct Receipt {
 // GCT is 15% — if payment falls short the stock gets put back and an exception is thrown.
 class StadiumShop {
 private:
-    std::string shopId;
-    std::string stadiumId;
-    std::vector<std::unique_ptr<Product>> inventory;
-    std::vector<Receipt> transactionHistory;
+    string shopId;
+    string stadiumId;
+    vector<unique_ptr<Product>> inventory;
+    vector<Receipt> transactionHistory;
     int nextReceiptNo = 1;
 
     static constexpr double GCT_RATE = 0.15; // 15% GCT in Jamaica
 
 public:
-    StadiumShop(const std::string& shopId, const std::string& stadiumId)
+    StadiumShop(const string& shopId, const string& stadiumId)
         : shopId(shopId), stadiumId(stadiumId) {}
 
-    const std::string& getShopId() const { return shopId; }
-    const std::string& getStadiumId() const { return stadiumId; }
-    const std::vector<Receipt>& getTransactionHistory() const { return transactionHistory; }
+    const string& getShopId() const { return shopId; }
+    const string& getStadiumId() const { return stadiumId; }
+    const vector<Receipt>& getTransactionHistory() const { return transactionHistory; }
 
-    void addProduct(std::unique_ptr<Product> product) {
-        if (!product) throw std::invalid_argument("Product cannot be null");
+    void addProduct(unique_ptr<Product> product) {
+        if (!product) throw invalid_argument("Product cannot be null");
         for (const auto& p : inventory) {
             if (p->getProductId() == product->getProductId()) {
                 throw ShopFinanceException("Product ID " + product->getProductId() + " already exists in inventory");
@@ -62,17 +64,17 @@ public:
         inventory.push_back(std::move(product));
     }
 
-    Product* findProduct(const std::string& productId) {
+    Product* findProduct(const string& productId) {
         for (auto& p : inventory) {
             if (p->getProductId() == productId) return p.get();
         }
         return nullptr;
     }
 
-    const std::vector<std::unique_ptr<Product>>& getInventory() const { return inventory; }
+    const vector<unique_ptr<Product>>& getInventory() const { return inventory; }
 
     // what a cart costs including GCT, worked out the same way as processSale
-    double totalDue(const std::vector<std::pair<std::string, int>>& cart) {
+    double totalDue(const vector<pair<string, int>>& cart) {
         double subtotal = 0.0;
         for (const auto& item : cart) {
             const Product* p = findProduct(item.first);
@@ -85,20 +87,20 @@ public:
     }
 
     // handles a full sale — checks stock, deducts it, applies GCT, and rolls back if payment is short
-    Receipt processSale(const std::string& customerName,
-                        const std::vector<std::pair<std::string, int>>& cart,
+    Receipt processSale(const string& customerName,
+                        const vector<pair<string, int>>& cart,
                         double paymentTendered) {
         if (cart.empty()) {
             throw ShopFinanceException("Cart cannot be empty");
         }
         // '|' separates fields in the save file, so it can't appear inside one
-        if ((customerName).find_first_of("|\r\n") != std::string::npos) {
-            throw std::invalid_argument("Customer name cannot contain '|' or line breaks.");
+        if ((customerName).find_first_of("|\r\n") != string::npos) {
+            throw invalid_argument("Customer name cannot contain '|' or line breaks.");
         }
 
         // check everything is in stock before touching any quantities
         // quantities are totalled per product, so listing one twice can't get past the check
-        std::map<std::string, int> wanted;
+        map<string, int> wanted;
         for (const auto& item : cart) {
             if (item.second <= 0) throw ShopFinanceException("Quantity for " + item.first + " must be positive");
             Product* p = findProduct(item.first);
@@ -108,15 +110,15 @@ public:
             // compared by subtraction so huge quantities cannot overflow
             if (item.second > p->getStockQuantity() - wanted[item.first]) {
                 throw OutOfStockException("Insufficient stock for " + p->getName() + " (Available: "
-                                          + std::to_string(p->getStockQuantity()) + ", requested: "
-                                          + std::to_string(item.second) + ")");
+                                          + to_string(p->getStockQuantity()) + ", requested: "
+                                          + to_string(item.second) + ")");
             }
             wanted[item.first] += item.second;
         }
 
         // stock is confirmed — deduct it and tally up the subtotal
         double subtotal = 0.0;
-        std::vector<SaleItem> soldItems;
+        vector<SaleItem> soldItems;
 
         for (const auto& item : cart) {
             Product* p = findProduct(item.first);
@@ -136,15 +138,15 @@ public:
                 if (p) p->addStock(sold.quantity);
             }
             throw InsufficientPaymentException(
-                "Payment insufficient! Required: JMD $" + std::to_string(total)
-                + " (Subtotal: $" + std::to_string(subtotal) + " + 15% GCT: $" + std::to_string(gct)
-                + "), but customer tendered: JMD $" + std::to_string(paymentTendered));
+                "Payment insufficient! Required: JMD $" + to_string(total)
+                + " (Subtotal: $" + to_string(subtotal) + " + 15% GCT: $" + to_string(gct)
+                + "), but customer tendered: JMD $" + to_string(paymentTendered));
         }
 
         double change = paymentTendered - total;
 
         Receipt receipt;
-        receipt.receiptId = "RCP-" + std::to_string(nextReceiptNo++);
+        receipt.receiptId = "RCP-" + to_string(nextReceiptNo++);
         receipt.customerName = customerName;
         receipt.items = soldItems;
         receipt.subtotal = subtotal;
@@ -160,46 +162,46 @@ public:
     // puts back a saved receipt and continues numbering after it
     void restoreReceipt(const Receipt& r) {
         if (r.receiptId.size() < 5 || r.receiptId.compare(0, 4, "RCP-") != 0) {
-            throw std::invalid_argument("bad receipt ID '" + r.receiptId + "'");
+            throw invalid_argument("bad receipt ID '" + r.receiptId + "'");
         }
         for (const auto& existing : transactionHistory) {
-            if (existing.receiptId == r.receiptId) throw std::invalid_argument("duplicate receipt " + r.receiptId);
+            if (existing.receiptId == r.receiptId) throw invalid_argument("duplicate receipt " + r.receiptId);
         }
-        nextReceiptNo = std::max(nextReceiptNo, std::stoi(r.receiptId.substr(4)) + 1);
+        nextReceiptNo = max(nextReceiptNo, stoi(r.receiptId.substr(4)) + 1);
         transactionHistory.push_back(r);
     }
 
     void displayInventory() const {
-        std::cout << "\n--- Stadium Shop Inventory (" << shopId << " @ " << stadiumId << ") ---\n";
+        cout << "\n--- Stadium Shop Inventory (" << shopId << " @ " << stadiumId << ") ---\n";
         for (const auto& p : inventory) {
             p->displayProduct();
         }
-        std::cout << "---------------------------------------------------------\n";
+        cout << "---------------------------------------------------------\n";
     }
 
     static void printReceipt(const Receipt& r) {
-        std::cout << "\n========================================\n";
-        std::cout << "             STADIUM SHOP RECEIPT        \n";
-        std::cout << "Receipt ID : " << r.receiptId << "\n";
-        std::cout << "Customer   : " << r.customerName << "\n";
-        std::cout << "----------------------------------------\n";
-        std::cout << std::left << std::setw(20) << "Item"
-                  << std::right << std::setw(4) << "Qty"
-                  << std::setw(8) << "Price"
-                  << std::setw(8) << "Total" << "\n";
+        cout << "\n========================================\n";
+        cout << "             STADIUM SHOP RECEIPT        \n";
+        cout << "Receipt ID : " << r.receiptId << "\n";
+        cout << "Customer   : " << r.customerName << "\n";
+        cout << "----------------------------------------\n";
+        cout << left << setw(20) << "Item"
+                  << right << setw(4) << "Qty"
+                  << setw(8) << "Price"
+                  << setw(8) << "Total" << "\n";
 
         for (const auto& item : r.items) {
-            std::cout << std::left << std::setw(20) << item.productName
-                      << std::right << std::setw(4) << item.quantity
-                      << std::setw(8) << std::fixed << std::setprecision(2) << item.unitPrice
-                      << std::setw(8) << item.itemTotal << "\n";
+            cout << left << setw(20) << item.productName
+                      << right << setw(4) << item.quantity
+                      << setw(8) << fixed << setprecision(2) << item.unitPrice
+                      << setw(8) << item.itemTotal << "\n";
         }
-        std::cout << "----------------------------------------\n";
-        std::cout << std::left << std::setw(24) << "Subtotal:" << "JMD $" << std::setw(8) << r.subtotal << "\n";
-        std::cout << std::left << std::setw(24) << "15% GCT (Govt Tax):" << "JMD $" << std::setw(8) << r.gct << "\n";
-        std::cout << std::left << std::setw(24) << "TOTAL AMOUNT:" << "JMD $" << std::setw(8) << r.totalAmount << "\n";
-        std::cout << std::left << std::setw(24) << "Cash Tendered:" << "JMD $" << std::setw(8) << r.amountTendered << "\n";
-        std::cout << std::left << std::setw(24) << "Change Due:" << "JMD $" << std::setw(8) << r.change << "\n";
-        std::cout << "========================================\n\n";
+        cout << "----------------------------------------\n";
+        cout << left << setw(24) << "Subtotal:" << "JMD $" << setw(8) << r.subtotal << "\n";
+        cout << left << setw(24) << "15% GCT (Govt Tax):" << "JMD $" << setw(8) << r.gct << "\n";
+        cout << left << setw(24) << "TOTAL AMOUNT:" << "JMD $" << setw(8) << r.totalAmount << "\n";
+        cout << left << setw(24) << "Cash Tendered:" << "JMD $" << setw(8) << r.amountTendered << "\n";
+        cout << left << setw(24) << "Change Due:" << "JMD $" << setw(8) << r.change << "\n";
+        cout << "========================================\n\n";
     }
 };
