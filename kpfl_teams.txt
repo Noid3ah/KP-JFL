@@ -1,5 +1,0 @@
-T01|Harbour View FC|Kingston|1|0|1|1|0|0|3|1|3
-T02|Tivoli Gardens FC|Kingston|1|0|1|0|0|1|1|3|0
-T03|Portmore United|St. Catherine|1|0|1|0|1|0|2|2|1
-T04|Waterhouse FC|Kingston|1|1|0|0|0|0|0|0|0
-T05|Cavalier SC|Kingston|1|0|1|0|1|0|2|2|1

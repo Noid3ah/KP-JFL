@@ -24,16 +24,10 @@ Makefile
 # MinGW / GCC
 *.d
 
-# User credential file — contains passwords, keep off version control
-kpfl_users.txt
-
-# Report file — contains internal project info, keep local only
-output/REPORT.txt
-
 # UML design doc — internal reference, not for the repo
 UML_DIAGRAM_AND_DESIGN.md
 src/main
+/main
 
-# Personal data: spectator contact details and customer names
-kpfl_spectators.txt
-kpfl_shop_receipts.txt
+# Saved program data, recreated from samples when missing
+kpfl_*.txt
