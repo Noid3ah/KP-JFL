@@ -1,0 +1,5 @@
+Merchandise|M01|Harbour View Home Jersey|8500|25
+Merchandise|M02|KPFL Championship Cap|2200|50
+FoodItem|F01|Tastee Beef Patty|350|100
+FoodItem|F02|Ting Grapefruit Soda|250|80
+FoodItem|F03|Jerk Chicken Quarter|1200|40
