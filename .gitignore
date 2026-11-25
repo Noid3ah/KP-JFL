@@ -23,3 +23,6 @@ Makefile
 
 # MinGW / GCC
 *.d
+
+# User credential file — contains passwords, keep off version control
+kpfl_users.txt

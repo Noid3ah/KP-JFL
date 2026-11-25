@@ -1,233 +1,281 @@
 ================================================================================
-KINGSTON PREMIER FOOTBALL LEAGUE (KPFL) & MATCH-DAY MANAGEMENT SYSTEM
-OBJECT-ORIENTED PROGRAMMING GROUP PROJECT TECHNICAL REPORT & USER MANUAL
+   KINGSTON PREMIER FOOTBALL LEAGUE (KPFL) — MATCH-DAY MANAGEMENT SYSTEM
+        OOP Group Project — Technical Report & User Manual
 ================================================================================
 
-TABLE OF CONTENTS:
-1. HOW TO COMPILE AND RUN THE APPLICATION
-2. SYSTEM ARCHITECTURE & 4-PERSON MODULE ALLOCATION
-3. OBJECT-ORIENTED DESIGN RATIONALE (ENCAPSULATION, INHERITANCE, POLYMORPHISM, ABSTRACTION)
-4. MANDATORY BUSINESS RULES & EXCEPTION HANDLING
-5. MATCH-DAY FINANCE & PERSISTENCE SPECIFICATION (15% GCT & FILE I/O)
-6. THREE USEFUL MANAGEMENT REPORTS (SPECIFICATION SECTION 4.11)
-7. COMPREHENSIVE TEST PLAN & TEST SUITE RESULTS
+TABLE OF CONTENTS
+  1. How to Compile and Run the Application
+  2. System Architecture & 4-Person Module Allocation
+  3. Object-Oriented Design Rationale
+  4. Mandatory Business Rules & Exception Handling
+  5. Match-Day Finance & File Persistence
+  6. Three Management Reports
+  7. Automated Test Suite Results
 
---------------------------------------------------------------------------------
-1. HOW TO COMPILE AND RUN THE APPLICATION
---------------------------------------------------------------------------------
-Requirements:
-  - Any C++17 compatible compiler (e.g. MinGW-w64 g++, Clang, or MSVC)
-  - Operating System: Windows 10/11 (or Linux/macOS)
-
-Step-by-step Execution:
-  1. Open PowerShell or Command Prompt.
-  2. Navigate to the project directory:
-     cd "c:\Users\supre\Downloads\kpfl_league_ops\JamaicanFootballLeague_Full"
-
-  3. Compile the system:
-     g++ -std=c++17 -Wall -Wextra main.cpp -o main.exe
-
-  4. Run in Interactive Mode (Login Portal + Role Menus):
-     .\main.exe
-
-  5. Run in Automated Test Suite Mode (Verifies all 10 business rules):
-     .\main.exe --test
-
-Pre-configured Login Accounts:
-  ------------------------------------------------------------------
-  Role                      Username      Password   Privilege
-  ------------------------------------------------------------------
-  System Administrator      admin         admin123   Full Access (All Modules)
-  Person 1: League Ops      commish       pass123    Fixtures, Standings, Officials
-  Person 2: Team Manager    manager       pass123    Teams, Players, Coaches
-  Person 3: Stadium Lead    stadium       pass123    Stadiums, Capacities, Ticketing
-  Person 4: Shop Manager    shop          pass123    Merch, Food, 15% GCT, File Save
-  ------------------------------------------------------------------
-
---------------------------------------------------------------------------------
-2. SYSTEM ARCHITECTURE & 4-PERSON MODULE ALLOCATION
---------------------------------------------------------------------------------
-The project is strictly decomposed into 4 independent yet integrated modules
-satisfying the project brief:
-
-PERSON 1 — PROJECT LEAD & LEAGUE MANAGEMENT (Main Focus: League Operations)
-  - Assigned Classes: FootballLeague, LeagueCommissioner, Fixture, MatchResult, MatchOfficial
-  - Responsibilities:
-      * Orchestrates the overall league and points table.
-      * Creates fixtures assigning home/away teams, stadiums, dates, and times.
-      * Assigns match officials while strictly preventing scheduling conflicts.
-      * Records match scores and applies official points: Win = 3, Draw = 1, Loss = 0.
-      * Integrates modules from Person 2, Person 3, and Person 4.
-
-PERSON 2 — TEAM & PERSONNEL MANAGEMENT (Main Focus: Teams and People)
-  - Assigned Classes: Person (Abstract Superclass), Player, Coach, FootballTeam
-  - Responsibilities:
-      * Establishes the foundational Person base class for the entire project.
-      * Manages football club profiles (Harbour View, Tivoli Gardens, Portmore, etc.).
-      * Enforces minimum age rules: Players must be >= 16; Coaches must be >= 21.
-      * Prevents duplicate jersey numbers (1-99) within the same club squad.
-      * Tracks player positions, goals, and playing status (Active, Injured, Suspended).
-
-PERSON 3 — STADIUM & TICKET MANAGEMENT (Main Focus: Stadium Operations & Ticketing)
-  - Assigned Classes: Stadium, Ticket, Spectator
-  - Responsibilities:
-      * Manages stadium seating capacity, physical location, and field condition.
-      * Tracks which teams are assigned to each stadium for match fixtures.
-      * Manages ticket categories (Bleachers, Grandstand, VIP, Ultra VIP).
-      * Sells tickets to spectators and prevents sales from exceeding stadium capacity.
-
-PERSON 4 — STADIUM SHOP, FINANCE & DATA MANAGEMENT (Main Focus: Sales, Tax & Persistence)
-  - Assigned Classes: Product (Abstract Superclass), Merchandise, FoodItem, StadiumShop, DataPersistence
-  - Responsibilities:
-      * Establishes the Product hierarchy for match-day sales.
-      * Manages club merchandise (jerseys, caps, scarves) and Jamaican food/drinks (patties, Ting, jerk chicken).
-      * Processes transactions, calculates Subtotal, exactly 15% Jamaican GCT, total amount, and change.
-      * Prevents transactions from completing when payment is insufficient or out of stock.
-      * Handles sequential flat-file persistence (kpfl_teams.txt, kpfl_stadiums.txt, kpfl_shop_inventory.txt, kpfl_shop_receipts.txt).
-
---------------------------------------------------------------------------------
-3. OBJECT-ORIENTED DESIGN RATIONALE
---------------------------------------------------------------------------------
-The architecture explicitly addresses the primary pillars of OOP:
-
-1. ENCAPSULATION:
-   - All internal data members in all classes are declared `private` or `protected`.
-   - Access is mediated through validated getters and mutators.
-   - For example, team points cannot be directly manipulated; they only update
-     through the invariant method `FootballTeam::recordMatch(gf, ga, points)`.
-
-2. INHERITANCE:
-   - Person Hierarchy (Person 2):
-       Person (Abstract)
-         ├── Player (specializes position, jersey number, goals)
-         ├── Coach (specializes qualifications, role, experience)
-         ├── MatchOfficial (specializes officiating roles, grade, availability)
-         ├── LeagueCommissioner (specializes team approval, suspension, match inspection)
-         └── Spectator (specializes fan loyalty, email, tickets bought)
-   - Product Hierarchy (Person 4):
-       Product (Abstract)
-         ├── Merchandise (specializes size, team association, material)
-         └── FoodItem (specializes beverage flag, expiry date, perishability)
-
-3. POLYMORPHISM:
-   - In Person: `virtual void displayInfo() const = 0;`
-     Overridden polymorphically by Player, Coach, MatchOfficial, Commissioner, and Spectator.
-   - In Product: `virtual void displayProduct() const = 0;`
-     Overridden polymorphically by Merchandise and FoodItem.
-
-4. ABSTRACTION:
-   - Both Person and Product serve as high-level abstract interfaces. Concrete details
-     are hidden from caller systems such as the StadiumShop or LeagueCommissioner.
-
-5. RELATIONSHIPS (ASSOCIATION, AGGREGATION, COMPOSITION):
-   - Composition (Strong ownership, whole-part lifecycle):
-       * FootballTeam *-- Player / Coach (Team owns squad instances)
-       * FootballLeague *-- Fixture (League owns fixture lifecycle via unique_ptr)
-       * Fixture *-- MatchResult / Ticket (Result and tickets belong to the fixture)
-       * StadiumShop *-- Product (Shop manages product memory)
-   - Aggregation (Weak ownership, independent lifecycle):
-       * FootballLeague o-- LeagueCommissioner
-       * Fixture o-- MatchOfficial (Officials exist independently of fixtures)
-   - Association:
-       * Fixture --> Stadium & FootballTeam (References home team, away team, and ground)
-       * Ticket ..> Spectator (Ticket records purchaser ID)
-
---------------------------------------------------------------------------------
-4. MANDATORY BUSINESS RULES & EXCEPTION HANDLING
---------------------------------------------------------------------------------
-The project implements a cohesive, strongly-typed custom exception hierarchy
-inheriting from `JFLException` (which derives from `std::runtime_error`):
-
-  Rule 1: Unregistered or suspended teams cannot be scheduled.
-          -> Throws `TeamNotEligibleException`.
-  Rule 2: A team cannot play in two fixtures at the same date and time.
-          -> Throws `SchedulingConflictException`.
-  Rule 3: A stadium cannot host two fixtures at the same date and time.
-          -> Throws `SchedulingConflictException`.
-  Rule 4: A match official cannot be booked for conflicting fixtures.
-          -> Throws `OfficialConflictException`.
-  Rule 5: Match scores cannot be negative numbers.
-          -> Throws `InvalidScoreException`.
-  Rule 6: Fixture cannot be marked complete without a recorded score.
-          -> Throws `ResultRequiredException`.
-  Rule 7: Players must be at least 16 years old.
-          -> Throws `InvalidAgeException`.
-  Rule 8: Coaches must be at least 21 years old.
-          -> Throws `InvalidAgeException`.
-  Rule 9: No duplicate jersey numbers allowed within the same team.
-          -> Throws `PersonnelException`.
-  Rule 10: Ticket sales cannot exceed stadium seating capacity.
-           -> Throws `CapacityExceededException`.
-  Rule 11: Stadium shop transactions cannot complete if payment is insufficient.
-           -> Throws `InsufficientPaymentException`.
-  Rule 12: Stadium shop transactions cannot complete if items are out of stock.
-           -> Throws `OutOfStockException`.
-
---------------------------------------------------------------------------------
-5. MATCH-DAY FINANCE & PERSISTENCE SPECIFICATION
---------------------------------------------------------------------------------
-Finance and GCT Calculation:
-  - All shop purchases apply the Jamaican General Consumption Tax (GCT) at 15%:
-      Subtotal = Sum of (UnitPrice * Quantity) for all purchased items
-      GCT (15%) = Subtotal * 0.15
-      Total Amount = Subtotal + GCT
-      Change = CashTendered - Total Amount
-  - If CashTendered < Total Amount, the transaction rolls back inventory and throws
-    `InsufficientPaymentException`.
-
-File Persistence (DataPersistence):
-  - Uses sequential flat-text storage with delimiter '|':
-      * kpfl_teams.txt: Saves team registration number, name, parish, wins, draws, losses, points.
-      * kpfl_stadiums.txt: Saves stadium ID, name, location, capacity, condition.
-      * kpfl_shop_inventory.txt: Saves item category, ID, name, unit price, stock.
-      * kpfl_shop_receipts.txt: Saves receipt ID, customer name, subtotal, GCT, total paid.
-
---------------------------------------------------------------------------------
-6. THREE USEFUL MANAGEMENT REPORTS (SPECIFICATION SECTION 4.11)
---------------------------------------------------------------------------------
-The system features three built-in management reports accessible via the menus:
-
-REPORT 1: Top Goal Scorers (Golden Boot Race)
-  - Scans all player records across every registered team.
-  - Sorts players descending by goals scored.
-  - Displays rank, player name, team, jersey number, and goal tally.
-
-REPORT 2: Match Attendance & Stadium Capacity Utilization
-  - Evaluates each fixture and stadium.
-  - Computes capacity versus tickets sold.
-  - Outputs percentage capacity occupancy for event safety and marketing analytics.
-
-REPORT 3: Team Registration & Squad Status Summary
-  - Summarizes each club's parish location, active squad size, and registration status
-    (Active, Pending Approval, or Suspended).
-
---------------------------------------------------------------------------------
-7. COMPREHENSIVE TEST PLAN & TEST SUITE RESULTS
---------------------------------------------------------------------------------
-Running `.\main.exe --test` automatically executes 10 boundary and invalid test cases:
-
-  [Test 1] Suspended team scheduled in fixture
-           Result: PASS (Caught TeamNotEligibleException)
-  [Test 2] Double booking stadium slot for same time
-           Result: PASS (Caught SchedulingConflictException)
-  [Test 3] Match official assigned to conflicting timeslot
-           Result: PASS (Caught OfficialConflictException)
-  [Test 4] Negative match score (-1 to 2)
-           Result: PASS (Caught InvalidScoreException)
-  [Test 5] Player registration under 16 years old (Age 14)
-           Result: PASS (Caught InvalidAgeException)
-  [Test 6] Coach registration under 21 years old (Age 19)
-           Result: PASS (Caught InvalidAgeException)
-  [Test 7] Duplicate jersey number in same team squad (#9 taken)
-           Result: PASS (Caught PersonnelException)
-  [Test 8] Ticket generation exceeding stadium capacity (70 requested > 50 cap)
-           Result: PASS (Caught CapacityExceededException)
-  [Test 9] Insufficient cash payment tendered for stadium shop
-           Result: PASS (Caught InsufficientPaymentException)
-  [Test 10] Purchasing product quantity exceeding current stock
-            Result: PASS (Caught OutOfStockException)
-
-STATUS: ALL 10 UNIT AND INTEGRATION TESTS PASS VERIFICATION.
 ================================================================================
-END OF TECHNICAL REPORT
+  1. HOW TO COMPILE AND RUN THE APPLICATION
+================================================================================
+
+REQUIREMENTS
+  - A C++17-compatible compiler:
+      Windows  : MinGW-w64 (g++) — recommended via MSYS2 or WinLibs
+      macOS    : Xcode Command Line Tools (clang++)
+      Linux    : GCC/G++ (sudo apt install g++)
+  - No third-party libraries are required — standard C++17 only.
+
+STEP-BY-STEP (All Operating Systems)
+  ─────────────────────────────────────────────────────────────────────────────
+  Step 1 — Open a terminal in the project folder.
+
+      Windows  : Open PowerShell or Command Prompt, then navigate:
+                   cd path\to\JamaicanFootballLeague_Full
+
+      macOS    : Open Terminal, then navigate:
+                   cd ~/path/to/JamaicanFootballLeague_Full
+
+      Linux    : Open a terminal, then navigate:
+                   cd ~/path/to/JamaicanFootballLeague_Full
+
+  ─────────────────────────────────────────────────────────────────────────────
+  Step 2 — Compile the program.
+
+      Windows (MinGW / g++):
+        g++ -std=c++17 -Wall main.cpp -o main.exe
+
+      macOS / Linux (clang++ or g++):
+        g++ -std=c++17 -Wall main.cpp -o main
+
+  ─────────────────────────────────────────────────────────────────────────────
+  Step 3 — Run the program.
+
+      Windows:
+        .\main.exe
+
+      macOS / Linux:
+        ./main
+
+  ─────────────────────────────────────────────────────────────────────────────
+  Step 4 — (Optional) Run the automated test suite.
+
+      Windows:
+        .\main.exe --test
+
+      macOS / Linux:
+        ./main --test
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+LOGIN CREDENTIALS
+  ┌──────────────────────────┬──────────┬──────────┬──────────────────────────┐
+  │ Role                     │ Username │ Password │ Access Level             │
+  ├──────────────────────────┼──────────┼──────────┼──────────────────────────┤
+  │ System Administrator     │ admin    │ admin123 │ Full Access (All Modules) │
+  │ League Commissioner      │ commish  │ pass123  │ Fixtures, Standings       │
+  │ Team Manager             │ manager  │ pass123  │ Teams, Players, Coaches   │
+  │ Stadium Coordinator      │ stadium  │ pass123  │ Stadiums, Ticketing       │
+  │ Shop & Finance Manager   │ shop     │ pass123  │ Merchandise, Sales, GCT  │
+  └──────────────────────────┴──────────┴──────────┴──────────────────────────┘
+
+  NOTE: Login credentials are saved to kpfl_users.txt and persist across
+  program restarts. Any accounts loaded from that file on startup will be
+  available to log in with.
+
+================================================================================
+  2. SYSTEM ARCHITECTURE & 4-PERSON MODULE ALLOCATION
+================================================================================
+
+PERSON 1 — Adriel Fraser | PROJECT LEAD & LEAGUE MANAGEMENT
+  Classes  : FootballLeague, LeagueCommissioner, Fixture, MatchResult,
+             MatchOfficial
+  Focus    : Orchestrates the overall league and standings table.
+             Creates fixtures assigning home/away teams, stadiums, dates,
+             and times. Assigns match officials while preventing scheduling
+             conflicts. Records match scores and applies official points
+             (Win = 3, Draw = 1, Loss = 0). Integrates all four modules.
+
+PERSON 2 — Oshane Peddie | TEAM & PERSONNEL MANAGEMENT
+  Classes  : Person (Abstract), Player, Coach, FootballTeam
+  Focus    : Establishes the foundational Person base class. Manages club
+             profiles (Harbour View, Tivoli Gardens, Portmore, etc.).
+             Enforces minimum age rules (Players ≥ 16, Coaches ≥ 21).
+             Prevents duplicate jersey numbers (1–99) within the same squad.
+             Tracks player positions, goals, and playing status.
+
+PERSON 3 — Kayla Lyons | STADIUM & TICKET MANAGEMENT
+  Classes  : Stadium, Ticket, Spectator
+  Focus    : Manages stadium seating capacity, location, and field condition.
+             Tracks team–stadium assignments. Manages ticket categories
+             (Bleachers, Grandstand, VIP, Ultra VIP). Sells tickets and
+             prevents sales from exceeding stadium capacity.
+
+PERSON 4 — Karisa | SHOP, FINANCE & DATA MANAGEMENT
+  Classes  : Product (Abstract), Merchandise, FoodItem, StadiumShop,
+             DataPersistence
+  Focus    : Establishes the Product hierarchy for match-day sales. Manages
+             club merchandise and Jamaican food/drinks. Processes transactions,
+             calculates 15% GCT, and handles change. Prevents transactions
+             when payment is insufficient or items are out of stock. Handles
+             all flat-file persistence.
+
+================================================================================
+  3. OBJECT-ORIENTED DESIGN RATIONALE
+================================================================================
+
+1. ENCAPSULATION
+   All data members are declared private or protected. Access is only possible
+   through validated getters and mutators. For example, team points cannot be
+   directly modified — they update exclusively through
+   FootballTeam::recordMatch(gf, ga, points).
+
+2. INHERITANCE
+   Person Hierarchy (Person 2):
+     Person (Abstract)
+       ├── Player          — position, jersey number, goals
+       ├── Coach           — qualifications, role, years of experience
+       ├── MatchOfficial   — officiating role, grade, availability
+       ├── LeagueCommissioner — team approval, suspension, match inspection
+       └── Spectator       — fan loyalty, email, tickets bought
+
+   Product Hierarchy (Person 4):
+     Product (Abstract)
+       ├── Merchandise     — size, team association, material
+       └── FoodItem        — beverage flag, expiry date, perishability
+
+3. POLYMORPHISM
+   - Person:  virtual void displayInfo() const = 0;
+     Overridden by Player, Coach, MatchOfficial, Commissioner, Spectator.
+   - Product: virtual void displayProduct() const = 0;
+     Overridden by Merchandise and FoodItem.
+
+4. ABSTRACTION
+   Both Person and Product are high-level abstract interfaces. Concrete
+   implementation details are hidden from callers such as StadiumShop and
+   LeagueCommissioner.
+
+5. RELATIONSHIPS
+   Composition (strong ownership):
+     FootballTeam     *-- Player / Coach
+     FootballLeague   *-- Fixture
+     Fixture          *-- MatchResult / Ticket
+     StadiumShop      *-- Product
+
+   Aggregation (independent lifecycle):
+     FootballLeague   o-- LeagueCommissioner
+     Fixture          o-- MatchOfficial
+
+   Association:
+     Fixture          --> Stadium & FootballTeam
+     Ticket           ..> Spectator
+
+================================================================================
+  4. MANDATORY BUSINESS RULES & EXCEPTION HANDLING
+================================================================================
+
+  All exceptions inherit from JFLException (which derives from
+  std::runtime_error), giving the system a cohesive, strongly-typed
+  exception hierarchy.
+
+  Rule  1  Unregistered or suspended teams cannot be scheduled.
+           → TeamNotEligibleException
+
+  Rule  2  A team cannot play in two fixtures at the same date and time.
+           → SchedulingConflictException
+
+  Rule  3  A stadium cannot host two fixtures at the same date and time.
+           → SchedulingConflictException
+
+  Rule  4  A match official cannot be booked for conflicting fixtures.
+           → OfficialConflictException
+
+  Rule  5  Match scores cannot be negative numbers.
+           → InvalidScoreException
+
+  Rule  6  A fixture cannot be marked complete without a recorded score.
+           → ResultRequiredException
+
+  Rule  7  Players must be at least 16 years old.
+           → InvalidAgeException
+
+  Rule  8  Coaches must be at least 21 years old.
+           → InvalidAgeException
+
+  Rule  9  No duplicate jersey numbers within the same team.
+           → PersonnelException
+
+  Rule 10  Ticket sales cannot exceed stadium seating capacity.
+           → CapacityExceededException
+
+  Rule 11  Shop transactions cannot complete if payment is insufficient.
+           → InsufficientPaymentException
+
+  Rule 12  Shop transactions cannot complete if items are out of stock.
+           → OutOfStockException
+
+================================================================================
+  5. MATCH-DAY FINANCE & FILE PERSISTENCE
+================================================================================
+
+GCT CALCULATION (15% Jamaican General Consumption Tax)
+  Subtotal    = Σ (UnitPrice × Quantity) for all items in cart
+  GCT (15%)   = Subtotal × 0.15
+  Total       = Subtotal + GCT
+  Change      = CashTendered − Total
+
+  If CashTendered < Total, the transaction rolls back inventory and throws
+  InsufficientPaymentException.
+
+FILE PERSISTENCE (pipe-delimited flat text, auto-synced on every change)
+  kpfl_users.txt          — Saved login accounts (username|password|role|name)
+  kpfl_teams.txt          — Team registration, standings, suspension status
+  kpfl_stadiums.txt       — Stadium ID, name, location, capacity, condition
+  kpfl_shop_inventory.txt — Item category, ID, name, unit price, stock level
+  kpfl_shop_receipts.txt  — Receipt ID, customer, subtotal, GCT, total, change
+
+  All five files are loaded automatically on program startup and written
+  whenever data changes, so no information is lost between sessions.
+
+================================================================================
+  6. THREE MANAGEMENT REPORTS (Specification Section 4.11)
+================================================================================
+
+REPORT 1 — Top Goal Scorers (Golden Boot Race)
+  Scans all player records across every registered team.
+  Sorts players descending by goals scored.
+  Displays rank, player name, team, jersey number, and goal tally.
+
+REPORT 2 — Match Attendance & Stadium Capacity Utilization
+  Evaluates each fixture and its venue.
+  Computes capacity versus tickets sold.
+  Outputs percentage occupancy for safety and marketing analytics.
+
+REPORT 3 — Team Registration & Squad Status Summary
+  Summarises each club's parish location, active squad size, and
+  registration status (Active, Pending Approval, or Suspended).
+
+================================================================================
+  7. AUTOMATED TEST SUITE RESULTS
+================================================================================
+
+  Run with:  .\main.exe --test   (Windows)
+             ./main --test       (macOS / Linux)
+
+  ┌───────┬────────────────────────────────────────────────┬────────┐
+  │ Test  │ Description                                    │ Result │
+  ├───────┼────────────────────────────────────────────────┼────────┤
+  │   1   │ Suspended team scheduled in fixture            │  PASS  │
+  │   2   │ Double-booked stadium slot (same date & time)  │  PASS  │
+  │   3   │ Match official assigned to conflicting slot    │  PASS  │
+  │   4   │ Negative match score (−1 to 2)                 │  PASS  │
+  │   5   │ Player registration — underage (Age 14)        │  PASS  │
+  │   6   │ Coach registration — underage (Age 19)         │  PASS  │
+  │   7   │ Duplicate jersey number in same squad (#9)     │  PASS  │
+  │   8   │ Tickets requested exceed stadium capacity      │  PASS  │
+  │   9   │ Insufficient cash tendered for shop purchase   │  PASS  │
+  │  10   │ Purchase quantity exceeds current stock        │  PASS  │
+  └───────┴────────────────────────────────────────────────┴────────┘
+
+  STATUS: ALL 10 UNIT AND INTEGRATION TESTS PASS VERIFICATION.
+
+================================================================================
+  END OF TECHNICAL REPORT
 ================================================================================
