@@ -4,6 +4,8 @@
 #include <sstream>
 #include <vector>
 #include <memory>
+#include <iomanip>
+#include <stdexcept>
 #include <limits>
 #include <cstdlib>
 #include "AuthService.h"
@@ -23,6 +25,8 @@
  */
 class MenuSystem {
 private:
+    struct InputCancelled {}; // thrown when the user enters 0 at a numbered list
+
     FootballLeague& league;
     LeagueCommissioner& commissioner;
     StadiumShop& shop;
@@ -45,6 +49,106 @@ private:
     void clearInput() {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+
+    // shows a numbered list and returns the chosen index, asking again until the number is valid
+    // if a current value is given, pressing Enter keeps it and -1 is returned
+    int pick(const std::string& title, const std::vector<std::string>& options, const std::string& current = "") {
+        if (options.empty()) throw std::runtime_error(title + ": nothing to choose from yet.");
+        if (std::cin.fail() && !std::cin.eof()) std::cin.clear(); // an earlier number field was mistyped
+
+        std::cout << "\n" << title << (current.empty() ? "" : " [" + current + "]") << ":\n";
+        for (std::size_t i = 0; i < options.size(); ++i) {
+            std::cout << "  " << i + 1 << ". " << options[i] << "\n";
+        }
+        while (true) {
+            std::cout << "Enter number (1-" << options.size() << ", 0 to cancel"
+                      << (current.empty() ? "" : ", Enter to keep") << "): ";
+            std::string in;
+            if (current.empty()) std::cin >> std::ws; // skip the newline left by an earlier field
+            if (!std::getline(std::cin, in)) throw InputCancelled{};
+            if (!in.empty() && in.back() == '\r') in.pop_back();
+            if (in.empty() && !current.empty()) return -1;
+            if (!in.empty() && in.size() <= 4 && in.find_first_not_of("0123456789") == std::string::npos) {
+                const int n = std::stoi(in);
+                if (n == 0) throw InputCancelled{};
+                if (n <= static_cast<int>(options.size())) return n - 1;
+            }
+            std::cout << "[ERROR] Please choose a number from the list.\n";
+        }
+    }
+
+    // same, but returns the chosen text
+    std::string pickText(const std::string& title, const std::vector<std::string>& options, const std::string& current = "") {
+        const int i = pick(title, options, current);
+        return i < 0 ? current : options[i];
+    }
+
+    // same, with a last option for typing something not on the list
+    std::string pickOrType(const std::string& title, std::vector<std::string> options) {
+        options.push_back("Other (type it in)");
+        std::string choice = pickText(title, options);
+        if (choice == options.back()) {
+            std::cout << "Enter " << title << ": ";
+            std::getline(std::cin, choice);
+        }
+        return choice;
+    }
+
+    // picks one item from a collection, using label() to describe each
+    template <typename Items, typename Label>
+    auto& pickFrom(const std::string& title, Items& items, Label label) {
+        std::vector<std::string> options;
+        for (const auto& item : items) options.push_back(label(item));
+        return items[pick(title, options)];
+    }
+
+    FootballTeam* pickTeam(const std::string& title = "Team", const FootballTeam* exclude = nullptr) {
+        std::vector<FootballTeam*> teams;
+        for (auto* t : league.getTeams()) if (t != exclude) teams.push_back(t);
+        return pickFrom(title, teams, [](const FootballTeam* t) {
+            return "[" + t->getRegNumber() + "] " + t->getName() + (t->isSuspended() ? " (SUSPENDED)" : "");
+        });
+    }
+
+    Stadium* pickStadium() {
+        return pickFrom("Stadium", league.getStadiums(), [](const Stadium* st) {
+            return "[" + st->getStadiumId() + "] " + st->getName() + " (Capacity: "
+                 + std::to_string(st->getSeatingCapacity()) + ", Condition: " + st->getFieldCondition() + ")";
+        });
+    }
+
+    Fixture& pickFixture() {
+        return *pickFrom("Fixture", league.getFixtures(), [](const std::unique_ptr<Fixture>& fx) {
+            return "[" + fx->getFixtureId() + "] " + fx->getHome().getName() + " vs " + fx->getAway().getName()
+                 + " (" + fx->getDate() + " " + fx->getTime() + " @ " + fx->getStadium().getName() + ", "
+                 + (fx->getStatus() == FixtureStatus::COMPLETED ? "Completed" : "Scheduled")
+                 + ", Officials: " + std::to_string(fx->getOfficials().size())
+                 + ", Tickets: " + std::to_string(fx->getTickets().size()) + ")";
+        });
+    }
+
+    Player& pickPlayer(FootballTeam& team) {
+        return pickFrom("Player", team.getSquad(), [](const Player& p) {
+            return "[" + p.getId() + "] #" + std::to_string(p.getJerseyNumber()) + " " + p.getName()
+                 + " (" + p.getPosition() + ", " + p.getPlayingStatus() + ")";
+        });
+    }
+
+    std::string pickGender() { return pick("Gender", {"Male", "Female"}) == 0 ? "M" : "F"; }
+
+    std::string pickPosition(const std::string& current = "") {
+        return pickText("Position", {"Forward", "Midfielder", "Defender", "Goalkeeper"}, current);
+    }
+
+    std::string pickCondition() {
+        return pickText("Field Condition", {"Excellent", "Good", "Fair", "Maintenance"});
+    }
+
+    std::string pickParish(const std::string& title) {
+        return pickOrType(title, {"Kingston", "St. Andrew", "St. Catherine", "Clarendon", "Manchester", "St. Elizabeth",
+                                  "Westmoreland", "Hanover", "St. James", "Trelawny", "St. Ann", "St. Mary",
+                                  "Portland", "St. Thomas"});
     }
 
 public:
@@ -256,57 +360,27 @@ public:
                 } else if (ch == 3) {
                     clearScreen();
                     std::cout << "=== SCHEDULE NEW FIXTURE ===\n\n";
-                    std::cout << "Available Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName()
-                                  << (t->isSuspended() ? " [SUSPENDED - Cannot be scheduled]" : " [ACTIVE]") << "\n";
-                    }
+                    FootballTeam* home = pickTeam("Home Team");
+                    FootballTeam* away = pickTeam("Away Team", home);
+                    Stadium* stad = pickStadium();
 
-                    std::cout << "\nAvailable Stadiums:\n";
-                    for (const auto* s : league.getStadiums()) {
-                        std::cout << "  - ID: [" << s->getStadiumId() << "] " << s->getName()
-                                  << " (Cap: " << s->getSeatingCapacity() << " | Cond: " << s->getFieldCondition() << ")\n";
-                    }
-
-                    std::string homeReg, awayReg, stadId, date, time;
-                    std::cout << "\nEnter Home Team ID (e.g. T01): "; std::cin >> homeReg;
-                    std::cout << "Enter Away Team ID (e.g. T02): "; std::cin >> awayReg;
-                    std::cout << "Enter Stadium ID (e.g. S01): "; std::cin >> stadId;
-                    std::cout << "Enter Date (YYYY-MM-DD, e.g. 2026-12-05): "; std::cin >> date;
+                    std::string date, time;
+                    std::cout << "\nEnter Date (YYYY-MM-DD, e.g. 2026-12-05): "; std::cin >> date;
                     std::cout << "Enter Time (HH:MM, e.g. 15:00): "; std::cin >> time;
                     clearInput();
 
-                    FootballTeam* home = league.findTeam(homeReg);
-                    FootballTeam* away = league.findTeam(awayReg);
-                    Stadium* stad = league.findStadium(stadId);
-
-                    if (!home || !away || !stad) {
-                        std::cout << "\n[ERROR] Invalid Team or Stadium ID entered!\n";
-                    } else {
-                        Fixture& fx = league.scheduleFixture(home, away, stad, date, time);
-                        DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
-                        std::cout << "\n[SUCCESS] Scheduled " << fx.getFixtureId() << " (" << home->getName()
-                                  << " vs " << away->getName() << ") successfully!\n";
-                    }
+                    Fixture& fx = league.scheduleFixture(home, away, stad, date, time);
+                    DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
+                    std::cout << "\n[SUCCESS] Scheduled " << fx.getFixtureId() << " (" << home->getName()
+                              << " vs " << away->getName() << ") successfully!\n";
                     pausePrompt();
                 } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== ASSIGN MATCH OFFICIAL ===\n\n";
-                    std::cout << "Current Fixtures:\n";
-                    for (const auto& fx : league.getFixtures()) {
-                        std::cout << "  - ID: [" << fx->getFixtureId() << "] " << fx->getHome().getName()
-                                  << " vs " << fx->getAway().getName()
-                                  << " (" << fx->getDate() << " " << fx->getTime() << " @ " << fx->getStadium().getName() << ")\n";
-                    }
-                    std::cout << "\nAvailable Officials:\n";
-                    for (const auto* o : league.getOfficials()) {
-                        std::cout << "  - ID: [" << o->getId() << "] " << o->getName()
-                                  << " (" << o->getRole() << " | Rank: " << o->getRank() << ")\n";
-                    }
-                    std::string fxId, offId;
-                    std::cout << "\nEnter Fixture ID (e.g. FX001): "; std::cin >> fxId;
-                    std::cout << "Enter Official ID (e.g. O001): "; std::cin >> offId;
-                    clearInput();
+                    const std::string fxId = pickFixture().getFixtureId();
+                    const std::string offId = pickFrom("Official", league.getOfficials(), [](const MatchOfficial* o) {
+                        return "[" + o->getId() + "] " + o->getName() + " (" + o->getRole() + ", " + o->getRank() + ")";
+                    })->getId();
 
                     league.assignOfficial(fxId, offId);
                     DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
@@ -315,17 +389,9 @@ public:
                 } else if (ch == 5) {
                     clearScreen();
                     std::cout << "=== RECORD MATCH RESULT ===\n\n";
-                    std::cout << "Fixtures Awaiting Results / In League:\n";
-                    for (const auto& fx : league.getFixtures()) {
-                        std::cout << "  - ID: [" << fx->getFixtureId() << "] " << fx->getHome().getName()
-                                  << " vs " << fx->getAway().getName()
-                                  << " [" << (fx->getStatus() == FixtureStatus::COMPLETED ? "COMPLETED" : "SCHEDULED") << "]\n";
-                    }
-
-                    std::string fxId;
+                    const std::string fxId = pickFixture().getFixtureId();
                     int homeScore, awayScore;
-                    std::cout << "\nEnter Fixture ID (e.g. FX001): "; std::cin >> fxId;
-                    std::cout << "Enter Home Team Score: "; std::cin >> homeScore;
+                    std::cout << "\nEnter Home Team Score: "; std::cin >> homeScore;
                     std::cout << "Enter Away Team Score: "; std::cin >> awayScore;
                     clearInput();
 
@@ -338,47 +404,16 @@ public:
                 } else if (ch == 6) {
                     clearScreen();
                     std::cout << "=== INSPECT FIXTURE READINESS ===\n\n";
-                    std::cout << "Current Fixtures:\n";
-                    for (const auto& fx : league.getFixtures()) {
-                        std::cout << "  - ID: [" << fx->getFixtureId() << "] " << fx->getHome().getName()
-                                  << " vs " << fx->getAway().getName()
-                                  << " (Officials assigned: " << fx->getOfficials().size() << ")\n";
-                    }
-                    std::string fxId;
-                    std::cout << "\nEnter Fixture ID to inspect: "; std::cin >> fxId;
-                    clearInput();
-
-                    bool found = false;
-                    for (const auto& fx : league.getFixtures()) {
-                        if (fx->getFixtureId() == fxId) {
-                            commissioner.inspectMatch(*fx);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) std::cout << "\n[ERROR] Fixture not found!\n";
+                    commissioner.inspectMatch(pickFixture());
                     pausePrompt();
                 } else if (ch == 7) {
                     clearScreen();
                     std::cout << "=== SUSPEND / REINSTATE TEAM ===\n\n";
-                    std::cout << "Registered Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName()
-                                  << " | Current Status: " << (t->isSuspended() ? "SUSPENDED" : "ACTIVE") << "\n";
-                    }
-                    std::string teamId;
-                    int statusChoice;
-                    std::cout << "\nEnter Team Reg Number (e.g. T01, T04): "; std::cin >> teamId;
-                    std::cout << "Select Action (1: Suspend | 2: Reinstate): "; std::cin >> statusChoice;
-                    clearInput();
+                    FootballTeam* t = pickTeam();
+                    const bool suspend = pick("Action", {"Suspend", "Reinstate"}) == 0;
 
-                    FootballTeam* t = league.findTeam(teamId);
-                    if (t) {
-                        commissioner.suspendTeam(*t, statusChoice == 1);
-                        DataPersistence::saveTeams(league, "kpfl_teams.txt");
-                    } else {
-                        std::cout << "\n[ERROR] Team not found!\n";
-                    }
+                    commissioner.suspendTeam(*t, suspend);
+                    DataPersistence::saveTeams(league, "kpfl_teams.txt");
                     pausePrompt();
                 } else if (ch == 8) {
                     showReportsMenu();
@@ -391,6 +426,9 @@ public:
                     }
                     inSubMenu = false;
                 }
+            } catch (const InputCancelled&) {
+                std::cout << "\nCancelled. Nothing was changed.\n";
+                pausePrompt();
             } catch (const std::exception& e) {
                 std::cout << "\n[LEAGUE ERROR] " << e.what() << "\n";
                 pausePrompt();
@@ -437,7 +475,7 @@ public:
                     std::cout << "Enter Registration Number (e.g. T07): "; std::cin >> regNo;
                     clearInput();
                     std::cout << "Enter Team Name: "; std::getline(std::cin, name);
-                    std::cout << "Enter City/Parish: "; std::getline(std::cin, city);
+                    city = pickParish("City/Parish");
 
                     auto newTeam = new FootballTeam(regNo, name, city);
                     league.addTeam(newTeam);
@@ -448,30 +486,17 @@ public:
                 } else if (ch == 3) {
                     clearScreen();
                     std::cout << "=== ADD PLAYER TO SQUAD ===\n\n";
-                    std::cout << "Available Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName()
-                                  << " (Current Squad: " << t->getSquad().size() << " players)\n";
-                    }
-
-                    std::string teamId, pId, pName, pos, gender;
+                    FootballTeam* t = pickTeam();
+                    std::string pId, pName, pos, gender;
                     int age, jersey;
-                    std::cout << "\nEnter Team Reg Number (e.g. T01): "; std::cin >> teamId;
-                    FootballTeam* t = league.findTeam(teamId);
-                    if (!t) {
-                        std::cout << "\n[ERROR] Team '" << teamId << "' not found!\n";
-                        pausePrompt();
-                        continue;
-                    }
 
                     std::cout << "\nAdding player to " << t->getName() << ":\n";
                     std::cout << "Enter New Player ID (e.g. PL010): "; std::cin >> pId;
                     clearInput();
                     std::cout << "Enter Player Name: "; std::getline(std::cin, pName);
                     std::cout << "Enter Age (Rule: Must be >= 16): "; std::cin >> age;
-                    std::cout << "Enter Gender (M/F): "; std::cin >> gender;
-                    clearInput();
-                    std::cout << "Enter Position (Forward / Midfielder / Defender / Goalkeeper): "; std::getline(std::cin, pos);
+                    gender = pickGender();
+                    pos = pickPosition();
                     std::cout << "Enter Jersey Number (1-99, cannot conflict): "; std::cin >> jersey;
                     clearInput();
 
@@ -483,31 +508,18 @@ public:
                 } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== ADD COACH TO TEAM ===\n\n";
-                    std::cout << "Available Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName()
-                                  << " (Coaches: " << t->getCoachingStaff().size() << ")\n";
-                    }
-
-                    std::string teamId, cId, cName, qual, role, gender;
+                    FootballTeam* t = pickTeam();
+                    std::string cId, cName, qual, role, gender;
                     int age, exp;
-                    std::cout << "\nEnter Team Reg Number (e.g. T01): "; std::cin >> teamId;
-                    FootballTeam* t = league.findTeam(teamId);
-                    if (!t) {
-                        std::cout << "\n[ERROR] Team '" << teamId << "' not found!\n";
-                        pausePrompt();
-                        continue;
-                    }
 
                     std::cout << "\nAdding coach to " << t->getName() << ":\n";
                     std::cout << "Enter New Coach ID (e.g. CO03): "; std::cin >> cId;
                     clearInput();
                     std::cout << "Enter Coach Name: "; std::getline(std::cin, cName);
                     std::cout << "Enter Age (Rule: Must be >= 21): "; std::cin >> age;
-                    std::cout << "Enter Gender (M/F): "; std::cin >> gender;
-                    clearInput();
-                    std::cout << "Enter Qualification (e.g. CONCACAF Pro / FIFA Elite): "; std::getline(std::cin, qual);
-                    std::cout << "Enter Role (e.g. Head Coach / Assistant Coach): "; std::getline(std::cin, role);
+                    gender = pickGender();
+                    qual = pickOrType("Qualification", {"CONCACAF Pro", "CONCACAF A", "CONCACAF B", "FIFA Elite License", "UEFA A License"});
+                    role = pickOrType("Role", {"Head Coach", "Assistant Coach", "Goalkeeping Coach", "Fitness Coach"});
                     std::cout << "Enter Years Experience: "; std::cin >> exp;
                     clearInput();
 
@@ -519,79 +531,24 @@ public:
                 } else if (ch == 5) {
                     clearScreen();
                     std::cout << "=== REMOVE PLAYER FROM SQUAD ===\n\n";
-                    std::cout << "Select from Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName() << "\n";
-                    }
+                    FootballTeam* t = pickTeam();
+                    const std::string pId = pickPlayer(*t).getId();
 
-                    std::string teamId, pId;
-                    std::cout << "\nEnter Team Reg Number: "; std::cin >> teamId;
-                    FootballTeam* t = league.findTeam(teamId);
-                    if (!t) {
-                        std::cout << "\n[ERROR] Team not found!\n";
-                        pausePrompt();
-                        continue;
-                    }
-
-                    std::cout << "\nCurrent Players in " << t->getName() << ":\n";
-                    for (const auto& p : t->getSquad()) {
-                        std::cout << "  - ID: [" << p.getId() << "] #" << p.getJerseyNumber() << " " << p.getName() << "\n";
-                    }
-
-                    std::cout << "\nEnter Player ID to remove: "; std::cin >> pId;
-                    clearInput();
-
-                    if (t->removePlayer(pId)) {
-                        DataPersistence::savePlayers(league, "kpfl_players.txt");
-                        std::cout << "\n[SUCCESS] Removed player " << pId << " from squad.\n";
-                    } else {
-                        std::cout << "\n[ERROR] Player ID '" << pId << "' not found in squad.\n";
-                    }
+                    t->removePlayer(pId);
+                    DataPersistence::savePlayers(league, "kpfl_players.txt");
+                    std::cout << "\n[SUCCESS] Removed player " << pId << " from squad.\n";
                     pausePrompt();
                 } else if (ch == 6) {
                     clearScreen();
                     std::cout << "=== SEARCH TEAM DETAILS ===\n\n";
-                    std::cout << "Registered Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName() << "\n";
-                    }
-                    std::string teamId;
-                    std::cout << "\nEnter Team Reg Number to inspect: "; std::cin >> teamId;
-                    clearInput();
-
-                    FootballTeam* t = league.findTeam(teamId);
-                    if (t) t->displayTeamInfo();
-                    else std::cout << "\n[ERROR] Team not found!\n";
+                    pickTeam()->displayTeamInfo();
                     pausePrompt();
                 } else if (ch == 7) {
                     clearScreen();
                     std::cout << "=== UPDATE PLAYER DETAILS ===\n\n";
-                    std::cout << "Select from Teams:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName() << "\n";
-                    }
-
-                    std::string teamId, pId;
-                    std::cout << "\nEnter Team Reg Number: "; std::cin >> teamId;
-                    clearInput();
-                    FootballTeam* t = league.findTeam(teamId);
-                    if (!t) {
-                        std::cout << "\n[ERROR] Team not found!\n";
-                        pausePrompt();
-                        continue;
-                    }
-
-                    std::cout << "\nCurrent Players in " << t->getName() << ":\n";
-                    for (const auto& p : t->getSquad()) p.displayInfo();
-
-                    std::cout << "\nEnter Player ID to update: "; std::cin >> pId;
-                    clearInput();
-                    const Player* p = t->findPlayer(pId);
-                    if (!p) {
-                        std::cout << "\n[ERROR] Player ID '" << pId << "' not found in squad.\n";
-                        pausePrompt();
-                        continue;
-                    }
+                    FootballTeam* t = pickTeam();
+                    const Player* p = &pickPlayer(*t);
+                    const std::string pId = p->getId();
 
                     // blank input keeps the current value
                     auto ask = [](const std::string& label, const std::string& current) {
@@ -612,9 +569,9 @@ public:
                     std::cout << "\nPress Enter to keep the current value.\n";
                     std::string name = ask("Name", p->getName());
                     int age = askInt("Age (>= 16)", p->getAge());
-                    std::string pos = ask("Position (Forward / Midfielder / Defender / Goalkeeper)", p->getPosition());
+                    std::string pos = pickPosition(p->getPosition());
                     int jersey = askInt("Jersey Number (1-99)", p->getJerseyNumber());
-                    std::string status = ask("Status (Active / Injured / Benched / Suspended)", p->getPlayingStatus());
+                    std::string status = pickText("Status", {"Active", "Injured", "Benched", "Suspended"}, p->getPlayingStatus());
 
                     t->updatePlayer(pId, name, age, pos, jersey, status);
                     DataPersistence::savePlayers(league, "kpfl_players.txt");
@@ -629,6 +586,9 @@ public:
                     }
                     inSubMenu = false;
                 }
+            } catch (const InputCancelled&) {
+                std::cout << "\nCancelled. Nothing was changed.\n";
+                pausePrompt();
             } catch (const std::exception& e) {
                 std::cout << "\n[PERSONNEL ERROR] " << e.what() << "\n";
                 pausePrompt();
@@ -674,10 +634,9 @@ public:
                     std::cout << "Enter Stadium ID (e.g. S03): "; std::cin >> sId;
                     clearInput();
                     std::cout << "Enter Stadium Name: "; std::getline(std::cin, name);
-                    std::cout << "Enter Location: "; std::getline(std::cin, loc);
+                    loc = pickParish("Location");
                     std::cout << "Enter Seating Capacity: "; std::cin >> cap;
-                    clearInput();
-                    std::cout << "Enter Condition (Excellent/Good/Fair): "; std::getline(std::cin, cond);
+                    cond = pickCondition();
 
                     auto s = new Stadium(sId, name, loc, cap, cond);
                     league.addStadium(s);
@@ -687,24 +646,10 @@ public:
                 } else if (ch == 3) {
                     clearScreen();
                     std::cout << "=== UPDATE STADIUM INFO ===\n\n";
-                    std::cout << "Registered Stadiums:\n";
-                    for (const auto* s : league.getStadiums()) {
-                        std::cout << "  - ID: [" << s->getStadiumId() << "] " << s->getName()
-                                  << " (Current Cap: " << s->getSeatingCapacity() << " | Cond: " << s->getFieldCondition() << ")\n";
-                    }
-
-                    std::string sId, cond;
+                    Stadium* s = pickStadium();
                     int cap;
-                    std::cout << "\nEnter Stadium ID to update: "; std::cin >> sId;
-                    Stadium* s = league.findStadium(sId);
-                    if (!s) {
-                        std::cout << "\n[ERROR] Stadium '" << sId << "' not found!\n";
-                        pausePrompt();
-                        continue;
-                    }
-                    std::cout << "Enter New Capacity (e.g. 40000): "; std::cin >> cap;
-                    clearInput();
-                    std::cout << "Enter New Condition (Excellent / Good / Fair / Maintenance): "; std::getline(std::cin, cond);
+                    std::cout << "\nEnter New Capacity (e.g. 40000): "; std::cin >> cap;
+                    const std::string cond = pickCondition();
 
                     s->setSeatingCapacity(cap);
                     s->setFieldCondition(cond);
@@ -714,120 +659,44 @@ public:
                 } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== GENERATE TICKETS FOR FIXTURE ===\n\n";
-                    std::cout << "Current Fixtures:\n";
-                    for (const auto& fx : league.getFixtures()) {
-                        std::cout << "  - ID: [" << fx->getFixtureId() << "] " << fx->getHome().getName()
-                                  << " vs " << fx->getAway().getName()
-                                  << " @ " << fx->getStadium().getName()
-                                  << " (Stadium Cap: " << fx->getStadium().getSeatingCapacity()
-                                  << " | Existing Tickets: " << fx->getTickets().size() << ")\n";
-                    }
-
-                    std::string fxId;
+                    Fixture& fx = pickFixture();
                     int bleachers, grandstand, vip;
-                    std::cout << "\nEnter Fixture ID (e.g. FX001): "; std::cin >> fxId;
-                    std::cout << "Number of Bleachers Tickets ($1,500): "; std::cin >> bleachers;
+                    std::cout << "\nNumber of Bleachers Tickets ($1,500): "; std::cin >> bleachers;
                     std::cout << "Number of Grandstand Tickets ($3,500): "; std::cin >> grandstand;
                     std::cout << "Number of VIP Tickets ($7,000): "; std::cin >> vip;
                     clearInput();
 
-                    bool found = false;
-                    for (const auto& fx : league.getFixtures()) {
-                        if (fx->getFixtureId() == fxId) {
-                            fx->generateTickets(bleachers, grandstand, vip);
-                            DataPersistence::saveTickets(league, "kpfl_tickets.txt");
-                            std::cout << "\n[SUCCESS] Generated " << fx->getTickets().size() << " total tickets for " << fx->getFixtureId() << "!\n";
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) std::cout << "\n[ERROR] Fixture '" << fxId << "' not found!\n";
+                    fx.generateTickets(bleachers, grandstand, vip);
+                    DataPersistence::saveTickets(league, "kpfl_tickets.txt");
+                    std::cout << "\n[SUCCESS] Generated " << fx.getTickets().size() << " total tickets for " << fx.getFixtureId() << "!\n";
                     pausePrompt();
                 } else if (ch == 5) {
                     clearScreen();
                     std::cout << "=== SELL TICKET TO SPECTATOR ===\n\n";
 
-                    std::cout << "Available Fixtures:\n";
-                    for (const auto& fx : league.getFixtures()) {
-                        std::cout << "  - " << fx->getFixtureId() << ": " << fx->getHome().getName()
-                                  << " vs " << fx->getAway().getName()
-                                  << " (Tickets: " << fx->getTickets().size() << " created)\n";
-                    }
-
-                    std::cout << "\nAvailable Registered Spectators:\n";
-                    if (league.getSpectators().empty()) {
-                        std::cout << "  (No spectators registered yet. Please use Option 6 first!)\n";
-                    } else {
-                        for (const auto* sp : league.getSpectators()) {
-                            std::cout << "  - ID: [" << sp->getId() << "] " << sp->getName()
-                                      << " (Tickets already owned: " << sp->getTicketsBought() << ")\n";
-                        }
-                    }
-
-                    std::string fxId, spId;
-                    int catChoice;
-                    std::cout << "\nEnter Fixture ID (e.g. FX001): "; std::cin >> fxId;
-                    std::cout << "Enter Spectator ID (e.g. SP01, SP02, SP03): "; std::cin >> spId;
-                    std::cout << "Select Category (1. Bleachers | 2. Grandstand | 3. VIP): "; std::cin >> catChoice;
-                    clearInput();
-
-                    TicketCategory cat = TicketCategory::BLEACHERS;
-                    if (catChoice == 2) cat = TicketCategory::GRANDSTAND;
-                    else if (catChoice == 3) cat = TicketCategory::VIP;
-
-                    // Trim and match spectator ID (case-insensitive for convenience)
-                    Spectator* spectator = nullptr;
-                    for (auto* sp : league.getSpectators()) {
-                        std::string a = sp->getId();
-                        std::string b = spId;
-                        std::transform(a.begin(), a.end(), a.begin(), ::toupper);
-                        std::transform(b.begin(), b.end(), b.begin(), ::toupper);
-                        if (a == b) { spectator = sp; break; }
-                    }
-
-                    if (!spectator) {
-                        std::cout << "\n[ERROR] Spectator with ID '" << spId << "' was not found!\n";
-                        std::cout << "Hint: Check the list of available spectator IDs printed above.\n";
+                    Fixture& fx = pickFixture();
+                    if (fx.getTickets().empty()) {
+                        std::cout << "\n[NOTICE] No tickets have been generated for fixture " << fx.getFixtureId() << " yet!\n";
+                        std::cout << "Please choose Option 4 (Generate Tickets for a Fixture) first.\n";
                         pausePrompt();
                         continue;
                     }
+                    Spectator* spectator = pickFrom("Spectator", league.getSpectators(), [](const Spectator* sp) {
+                        return "[" + sp->getId() + "] " + sp->getName() + " (Tickets owned: " + std::to_string(sp->getTicketsBought()) + ")";
+                    });
+                    const std::vector<TicketCategory> categories = {TicketCategory::BLEACHERS, TicketCategory::GRANDSTAND, TicketCategory::VIP};
+                    const TicketCategory cat = pickFrom("Category", categories, [](TicketCategory c) { return ticketCategoryToString(c); });
 
-                    bool sold = false;
-                    for (const auto& fx : league.getFixtures()) {
-                        std::string a = fx->getFixtureId();
-                        std::string b = fxId;
-                        std::transform(a.begin(), a.end(), a.begin(), ::toupper);
-                        std::transform(b.begin(), b.end(), b.begin(), ::toupper);
-
-                        if (a == b) {
-                            if (fx->getTickets().empty()) {
-                                std::cout << "\n[NOTICE] No tickets have been generated for fixture " << fx->getFixtureId() << " yet!\n";
-                                std::cout << "Please choose Option 4 (Generate Tickets for a Fixture) first.\n";
-                                sold = true;
-                                break;
-                            }
-                            Ticket* t = fx->sellTicket(cat, *spectator);
-                            // spectators first, so a saved ticket never refers to a missing buyer
-                            DataPersistence::saveSpectators(league, "kpfl_spectators.txt");
-                            DataPersistence::saveTickets(league, "kpfl_tickets.txt");
-                            std::cout << "\n[SUCCESS] Ticket sold successfully!\n";
-                            t->displayInfo();
-                            sold = true;
-                            break;
-                        }
-                    }
-                    if (!sold) std::cout << "\n[ERROR] Fixture '" << fxId << "' was not found or the category is sold out!\n";
+                    Ticket* t = fx.sellTicket(cat, *spectator);
+                    // spectators first, so a saved ticket never refers to a missing buyer
+                    DataPersistence::saveSpectators(league, "kpfl_spectators.txt");
+                    DataPersistence::saveTickets(league, "kpfl_tickets.txt");
+                    std::cout << "\n[SUCCESS] Ticket sold successfully!\n";
+                    t->displayInfo();
                     pausePrompt();
                 } else if (ch == 6) {
                     clearScreen();
                     std::cout << "=== REGISTER SPECTATOR ===\n\n";
-
-                    std::cout << "Available Teams in League (for fan preference):\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - [" << t->getRegNumber() << "] " << t->getName()
-                                  << " (" << t->getHomeCity() << ")\n";
-                    }
-                    std::cout << "  - Or type 'Neutral' / leave blank if neutral fan\n\n";
 
                     std::string spId, name, gender, email, phone, prefTeam;
                     int age;
@@ -835,11 +704,14 @@ public:
                     clearInput();
                     std::cout << "Enter Full Name: "; std::getline(std::cin, name);
                     std::cout << "Enter Age: "; std::cin >> age;
-                    std::cout << "Enter Gender (M/F): "; std::cin >> gender;
-                    clearInput();
+                    gender = pickGender();
                     std::cout << "Enter Email Address: "; std::getline(std::cin, email);
                     std::cout << "Enter Phone Number: "; std::getline(std::cin, phone);
-                    std::cout << "Enter Preferred Team Name (from list above): "; std::getline(std::cin, prefTeam);
+                    std::vector<std::string> fanOptions;
+                    for (const auto* t : league.getTeams()) fanOptions.push_back(t->getName());
+                    fanOptions.push_back("Neutral");
+                    prefTeam = pickText("Preferred Team", fanOptions);
+                    if (prefTeam == "Neutral") prefTeam.clear();
 
                     auto sp = new Spectator(spId, name, age, gender, email, phone, prefTeam);
                     league.addSpectator(sp);
@@ -859,6 +731,9 @@ public:
                     }
                     inSubMenu = false;
                 }
+            } catch (const InputCancelled&) {
+                std::cout << "\nCancelled. Nothing was changed.\n";
+                pausePrompt();
             } catch (const std::exception& e) {
                 std::cout << "\n[STADIUM/TICKETING ERROR] " << e.what() << "\n";
                 pausePrompt();
@@ -899,12 +774,6 @@ public:
                     clearScreen();
                     std::cout << "=== ADD NEW MERCHANDISE ===\n\n";
 
-                    std::cout << "Available Teams to link merchandise to:\n";
-                    for (const auto* t : league.getTeams()) {
-                        std::cout << "  - [" << t->getRegNumber() << "] " << t->getName() << "\n";
-                    }
-                    std::cout << "  - Or type 'League' for general KPFL merchandise\n\n";
-
                     std::string pId, name, size, team;
                     double price;
                     int stock;
@@ -913,9 +782,12 @@ public:
                     std::cout << "Enter Item Name (e.g. Cavalier SC Home Jersey): "; std::getline(std::cin, name);
                     std::cout << "Enter Price in JMD (e.g. 8500): "; std::cin >> price;
                     std::cout << "Enter Stock Quantity (e.g. 30): "; std::cin >> stock;
-                    std::cout << "Enter Size (S / M / L / XL / Standard): "; std::cin >> size;
-                    clearInput();
-                    std::cout << "Enter Team Reg No (from list above, or 'League'): "; std::getline(std::cin, team);
+                    size = pickText("Size", {"S", "M", "L", "XL", "Standard"});
+                    std::vector<std::string> teamOptions;
+                    for (const auto* t : league.getTeams()) teamOptions.push_back("[" + t->getRegNumber() + "] " + t->getName());
+                    teamOptions.push_back("League (general KPFL merchandise)");
+                    const std::size_t teamIndex = pick("Linked Team", teamOptions);
+                    team = teamIndex < league.getTeams().size() ? league.getTeams()[teamIndex]->getRegNumber() : "League";
 
                     shop.addProduct(std::make_unique<Merchandise>(pId, name, price, stock, size, team));
                     DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
@@ -926,35 +798,42 @@ public:
                     std::cout << "=== ADD NEW FOOD / BEVERAGE ===\n\n";
                     std::string pId, name;
                     double price;
-                    int stock, isBev;
+                    int stock;
                     std::cout << "Enter Product ID (e.g. F04): "; std::cin >> pId;
                     clearInput();
                     std::cout << "Enter Item Name: "; std::getline(std::cin, name);
                     std::cout << "Enter Price (JMD): "; std::cin >> price;
                     std::cout << "Enter Stock Quantity: "; std::cin >> stock;
-                    std::cout << "Is it a beverage? (1 for Yes, 0 for Food): "; std::cin >> isBev;
-                    clearInput();
+                    const bool isBev = pick("Type", {"Food", "Beverage"}) == 1;
 
-                    shop.addProduct(std::make_unique<FoodItem>(pId, name, price, stock, isBev == 1));
+                    shop.addProduct(std::make_unique<FoodItem>(pId, name, price, stock, isBev));
                     DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     std::cout << "\n[SUCCESS] Added food/beverage item to shop!\n";
                     pausePrompt();
                 } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== PROCESS CUSTOMER SALE ===\n\n";
-                    shop.displayInventory();
-
                     std::string custName;
                     std::cout << "Enter Customer Name: "; std::getline(std::cin, custName);
 
                     std::vector<std::pair<std::string, int>> cart;
                     while (true) {
-                        std::string prodId;
+                        std::vector<std::string> options;
+                        for (const auto& p : shop.getInventory()) {
+                            std::ostringstream label;
+                            label << "[" << p->getProductId() << "] " << p->getName() << " (JMD $" << std::fixed << std::setprecision(2)
+                                  << p->getUnitPrice() << ", Stock: " << p->getStockQuantity() << ")";
+                            options.push_back(label.str());
+                        }
+                        options.push_back("Done - go to payment");
+                        const std::size_t choice = pick("Product (" + std::to_string(cart.size()) + " in cart)", options);
+                        if (choice == options.size() - 1) break;
+
                         int qty;
-                        std::cout << "Enter Product ID to purchase (or 'done' to finish): "; std::cin >> prodId;
-                        if (prodId == "done") break;
-                        std::cout << "Enter Quantity: "; std::cin >> qty;
-                        cart.push_back({prodId, qty});
+                        std::cout << "Enter Quantity: ";
+                        if (!(std::cin >> qty)) qty = 0; // rejected by processSale
+                        clearInput();
+                        cart.push_back({shop.getInventory()[choice]->getProductId(), qty});
                     }
 
                     if (!cart.empty()) {
@@ -968,7 +847,6 @@ public:
                         DataPersistence::saveTransactions(shop, "kpfl_shop_receipts.txt");
                         DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     } else {
-                        clearInput();
                         std::cout << "\nCart was empty. No transaction processed.\n";
                     }
                     pausePrompt();
@@ -1002,6 +880,9 @@ public:
                     }
                     inSubMenu = false;
                 }
+            } catch (const InputCancelled&) {
+                std::cout << "\nCancelled. Nothing was changed.\n";
+                pausePrompt();
             } catch (const std::exception& e) {
                 std::cout << "\n[SHOP/FINANCE ERROR] " << e.what() << "\n";
                 pausePrompt();
