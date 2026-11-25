@@ -5,26 +5,26 @@
 #include <cassert>
 
 // Include all modules
-#include "exceptions.h"
-#include "Person.h"
-#include "Player.h"
-#include "Coach.h"
-#include "Spectator.h"
-#include "MatchOfficial.h"
-#include "LeagueCommissioner.h"
-#include "FootballTeam.h"
-#include "Stadium.h"
-#include "Ticket.h"
-#include "MatchResult.h"
-#include "Fixture.h"
-#include "FootballLeague.h"
-#include "Product.h"
-#include "Merchandise.h"
-#include "FoodItem.h"
-#include "StadiumShop.h"
-#include "DataPersistence.h"
-#include "AuthService.h"
-#include "MenuSystem.h"
+#include "../include/exceptions.h"
+#include "../include/Person.h"
+#include "../include/Player.h"
+#include "../include/Coach.h"
+#include "../include/Spectator.h"
+#include "../include/MatchOfficial.h"
+#include "../include/LeagueCommissioner.h"
+#include "../include/FootballTeam.h"
+#include "../include/Stadium.h"
+#include "../include/Ticket.h"
+#include "../include/MatchResult.h"
+#include "../include/Fixture.h"
+#include "../include/FootballLeague.h"
+#include "../include/Product.h"
+#include "../include/Merchandise.h"
+#include "../include/FoodItem.h"
+#include "../include/StadiumShop.h"
+#include "../include/DataPersistence.h"
+#include "../include/AuthService.h"
+#include "../include/MenuSystem.h"
 
 // Helper function to test exceptions
 template <typename ExceptionType, typename Action>
@@ -102,7 +102,33 @@ void runAutomatedTestSuite(FootballLeague& league,
         shop.processSale("Wholesale Buyer", hugeCart, 10000000.0);
     });
 
-    std::cout << "\n[ALL 10 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 11-13. Person 2: Player updates obey the same rules as adding a player
+    FootballTeam updTeam("T99", "Update Test FC", "Kingston");
+    Player scorer("PL901", "Player One", 20, "M", "Forward", 9);
+    scorer.addGoals(3);
+    updTeam.addPlayer(scorer);
+    updTeam.addPlayer(Player("PL902", "Player Two", 21, "M", "Defender", 4));
+    expectException<InvalidAgeException>("Player updated to under 16", [&] {
+        updTeam.updatePlayer("PL901", "Changed", 14, "Forward", 9, "Active");
+    });
+    expectException<PersonnelException>("Player updated to a taken jersey", [&] {
+        updTeam.updatePlayer("PL901", "Changed", 20, "Forward", 4, "Active");
+    });
+    expectException<PersonnelException>("Player updated to an invalid status", [&] {
+        updTeam.updatePlayer("PL901", "Changed", 20, "Forward", 9, "Asleep");
+    });
+
+    // 14. Person 2: Failed updates change nothing; valid ones apply and keep goals
+    const Player* upd = updTeam.findPlayer("PL901");
+    bool updateOk = upd->getName() == "Player One"
+        && updTeam.updatePlayer("PL901", "Renamed", 22, "Midfielder", 9, "Injured")
+        && upd->getName() == "Renamed" && upd->getAge() == 22
+        && upd->getPosition() == "Midfielder" && upd->getPlayingStatus() == "Injured"
+        && upd->getGoals() == 3 && upd->getTeamId() == "T99"
+        && !updTeam.updatePlayer("NOPE", "X", 20, "Forward", 1, "Active");
+    std::cout << (updateOk ? "[PASS]" : "[FAIL]") << " Valid player update applied\n";
+
+    std::cout << "\n[ALL 14 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {

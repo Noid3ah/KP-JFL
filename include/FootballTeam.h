@@ -104,6 +104,30 @@ public:
         return false;
     }
 
+    // updates a player's details; ID, gender, team and goals are kept
+    // everything is validated before anything changes, returns false if no match found
+    bool updatePlayer(const std::string& playerId, const std::string& name, int age,
+                      const std::string& position, int jerseyNumber, const std::string& status) {
+        Player* existing = findPlayer(playerId);
+        if (!existing) return false;
+
+        for (const auto& p : squad) {
+            if (p.getId() != playerId && p.getJerseyNumber() == jerseyNumber) {
+                throw PersonnelException("Jersey #" + std::to_string(jerseyNumber) + " is already taken by " + p.getName());
+            }
+        }
+        if (status != "Active" && status != "Injured" && status != "Benched" && status != "Suspended") {
+            throw PersonnelException("Invalid status '" + status + "'. Use Active, Injured, Benched or Suspended.");
+        }
+
+        // rebuilding through the constructor reuses its name, age and jersey range rules
+        Player updated(playerId, name, age, existing->getGender(), position, jerseyNumber, regNumber);
+        updated.addGoals(existing->getGoals());
+        updated.setPlayingStatus(status);
+        *existing = updated;
+        return true;
+    }
+
     // looks up a player by ID — returns nullptr if not found
     // don't hold onto this pointer after modifying the squad
     Player* findPlayer(const std::string& playerId) {

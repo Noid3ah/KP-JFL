@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <memory>
 #include <limits>
@@ -419,9 +420,10 @@ public:
             std::cout << "  4. Add Coach to Team Staff\n";
             std::cout << "  5. Remove Player from Team\n";
             std::cout << "  6. Search Team Details\n";
-            std::cout << "  7. " << (currentUser->role == UserRole::ADMIN_ALL ? "Return to Master Menu" : "Log Out") << "\n";
+            std::cout << "  7. Update Player Details\n";
+            std::cout << "  8. " << (currentUser->role == UserRole::ADMIN_ALL ? "Return to Master Menu" : "Log Out") << "\n";
             std::cout << "------------------------------------------------------\n";
-            std::cout << "Enter choice (1-7): ";
+            std::cout << "Enter choice (1-8): ";
 
             int ch;
             if (!(std::cin >> ch)) { clearInput(); continue; }
@@ -565,6 +567,62 @@ public:
                     else std::cout << "\n[ERROR] Team not found!\n";
                     pausePrompt();
                 } else if (ch == 7) {
+                    clearScreen();
+                    std::cout << "=== UPDATE PLAYER DETAILS ===\n\n";
+                    std::cout << "Select from Teams:\n";
+                    for (const auto* t : league.getTeams()) {
+                        std::cout << "  - ID: [" << t->getRegNumber() << "] " << t->getName() << "\n";
+                    }
+
+                    std::string teamId, pId;
+                    std::cout << "\nEnter Team Reg Number: "; std::cin >> teamId;
+                    clearInput();
+                    FootballTeam* t = league.findTeam(teamId);
+                    if (!t) {
+                        std::cout << "\n[ERROR] Team not found!\n";
+                        pausePrompt();
+                        continue;
+                    }
+
+                    std::cout << "\nCurrent Players in " << t->getName() << ":\n";
+                    for (const auto& p : t->getSquad()) p.displayInfo();
+
+                    std::cout << "\nEnter Player ID to update: "; std::cin >> pId;
+                    clearInput();
+                    const Player* p = t->findPlayer(pId);
+                    if (!p) {
+                        std::cout << "\n[ERROR] Player ID '" << pId << "' not found in squad.\n";
+                        pausePrompt();
+                        continue;
+                    }
+
+                    // blank input keeps the current value
+                    auto ask = [](const std::string& label, const std::string& current) {
+                        std::string in;
+                        std::cout << label << " [" << current << "]: ";
+                        std::getline(std::cin, in);
+                        return in.empty() ? current : in;
+                    };
+                    auto askInt = [&](const std::string& label, int current) {
+                        std::istringstream ss(ask(label, std::to_string(current)));
+                        int v;
+                        if (!(ss >> v) || !(ss >> std::ws).eof()) {
+                            throw std::invalid_argument(label + " must be a whole number.");
+                        }
+                        return v;
+                    };
+
+                    std::cout << "\nPress Enter to keep the current value.\n";
+                    std::string name = ask("Name", p->getName());
+                    int age = askInt("Age (>= 16)", p->getAge());
+                    std::string pos = ask("Position (Forward / Midfielder / Defender / Goalkeeper)", p->getPosition());
+                    int jersey = askInt("Jersey Number (1-99)", p->getJerseyNumber());
+                    std::string status = ask("Status (Active / Injured / Benched / Suspended)", p->getPlayingStatus());
+
+                    t->updatePlayer(pId, name, age, pos, jersey, status);
+                    std::cout << "\n[SUCCESS] Updated player " << name << " (#" << jersey << ").\n";
+                    pausePrompt();
+                } else if (ch == 8) {
                     if (currentUser->role != UserRole::ADMIN_ALL) {
                         currentUser = nullptr;
                         clearScreen();
