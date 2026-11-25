@@ -429,9 +429,23 @@ public:
 
         cout << "Options:\n";
         cout << "  1. Log In\n";
-        cout << "  2. Exit Application\n";
-        const int choice = readChoice(2);
-        if (choice == 2) return false;
+        cout << "  2. Register\n";
+        cout << "  3. Change Password\n";
+        cout << "  4. Exit Application\n";
+        const int choice = readChoice(4);
+        if (choice == 4) return false;
+        if (choice == 2 || choice == 3) {
+            try {
+                if (choice == 2) showRegisterForm();
+                else showChangePasswordForm();
+            } catch (const InputCancelled&) {
+                cout << "\nCancelled. Nothing was changed.\n";
+            } catch (const exception& e) {
+                cout << "\n[ACCOUNT ERROR] " << e.what() << "\n";
+            }
+            pausePrompt();
+            return true;
+        }
 
         string username, password;
         try {
@@ -455,6 +469,49 @@ public:
             pausePrompt();
             return true;
         }
+    }
+
+    // asks for a new password twice until both match
+    string askNewPassword(const string& current = "") {
+        while (true) {
+            const string password = askUntil("New Password (6 to 40 characters)", "", [&](const string& in) -> string {
+                const string error = AuthService::passwordError(in);
+                if (!error.empty()) return error;
+                return in == current ? "The new password must be different." : "";
+            });
+            if (askText("Confirm New Password") == password) return password;
+            cout << "[ERROR] The passwords do not match. Try again.\n";
+        }
+    }
+
+    void showRegisterForm() {
+        clearScreen();
+        cout << "=== REGISTER ===\nType 'cancel' at any time to go back.\n\n";
+        const string username = askUntil("Choose a Username", "", [&](const string& in) { return auth.usernameError(in); });
+        const string password = askNewPassword();
+        const string displayName = askPersonName("Full Name");
+
+        // administrators are set up in advance, so that role isn't offered
+        const vector<UserRole> roles = {UserRole::LEAGUE_COMMISSIONER, UserRole::TEAM_MANAGER,
+                                        UserRole::STADIUM_COORDINATOR, UserRole::SHOP_MANAGER};
+        const UserRole role = roles[pick("Role", {"League Commissioner", "Team Manager", "Stadium Coordinator", "Shop Manager"})];
+
+        auth.registerUser(username, password, displayName, role);
+        cout << "\n[SUCCESS] Account '" << username << "' created. You can now log in.\n";
+    }
+
+    void showChangePasswordForm() {
+        clearScreen();
+        cout << "=== CHANGE PASSWORD ===\nType 'cancel' at any time to go back.\n\n";
+        string username, current;
+        while (true) {
+            username = askText("Username");
+            current = askText("Current Password");
+            if (auth.login(username, current)) break;
+            cout << "[ERROR] Username or current password is incorrect.\n";
+        }
+        auth.changePassword(username, current, askNewPassword(current));
+        cout << "\n[SUCCESS] Password changed. Please log in with the new one.\n";
     }
 
     void routeMenu() {

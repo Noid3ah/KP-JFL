@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include "exceptions.h"
+#include "SafeFile.h"
 #include "FootballLeague.h"
 #include "StadiumShop.h"
 
@@ -27,17 +28,6 @@ private:
             else parts.back() += ch;
         }
         return parts;
-    }
-
-    static void writeFile(const string& content, const string& filename) {
-        // write to a temp file first so a failed write can't damage the saved data
-        const string temp = filename + ".tmp";
-        ofstream file(temp);
-        if (!file.is_open()) throw PersistenceException("Cannot open file for writing: " + temp);
-        file << content;
-        file.close();
-        if (!file) throw PersistenceException("Failed writing: " + temp);
-        filesystem::rename(temp, filename);
     }
 
 public:
@@ -58,7 +48,7 @@ public:
                  << t->getGoalsAgainst() << "|"
                  << t->getPoints() << "\n";
         }
-        writeFile(file.str(), filename);
+        writeFileSafely(file.str(), filename);
     }
 
     // format: teamId|playerId|name|age|gender|position|jersey|goals|status
@@ -87,7 +77,7 @@ public:
         }
         existing.close();
 
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // replaces every team's squad with the saved one
@@ -137,7 +127,7 @@ public:
                     << c.getYearsExperience() << "\n";
             }
         }
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // replaces every team's coaching staff with the saved one
@@ -171,7 +161,7 @@ public:
             out << s->getId() << "|" << s->getName() << "|" << s->getAge() << "|" << s->getGender() << "|"
                 << s->getEmail() << "|" << s->getPhone() << "|" << s->getPreferredTeam() << "\n";
         }
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // spectators already in the league (the sample ones) are left alone; storage owns the added ones
@@ -209,7 +199,7 @@ public:
                     << ticketCategoryToString(t.getCategory()) << "|" << t.getPrice() << "|" << t.getSpectatorId() << "\n";
             }
         }
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // call after fixtures and spectators are loaded; replaces every fixture's tickets
@@ -264,7 +254,7 @@ public:
                  << s->getSeatingCapacity() << "|"
                  << s->getFieldCondition() << "\n";
         }
-        writeFile(file.str(), filename);
+        writeFileSafely(file.str(), filename);
     }
 
     // updates matching stadiums and adds the rest; storage owns the added ones
@@ -311,7 +301,7 @@ public:
                 out << "|SCHEDULED||\n";
             }
         }
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // call after teams and stadiums are loaded, since fixtures refer to them
@@ -364,7 +354,7 @@ public:
             }
             out << "\n";
         }
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // sets the stock of products already in the shop and adds the rest
@@ -422,7 +412,7 @@ public:
             }
             out << "\n";
         }
-        writeFile(out.str(), filename);
+        writeFileSafely(out.str(), filename);
     }
 
     // older files have no items, so those receipts load with totals only

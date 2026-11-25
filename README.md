@@ -54,7 +54,7 @@ Run from the project folder. Data files are read from and written to whichever f
 
 ## Automated Test Mode
 
-Runs all 36 built-in business rule tests automatically:
+Runs all 41 built-in business rule tests automatically:
 
 **Windows**
 
@@ -75,7 +75,10 @@ Runs all 36 built-in business rule tests automatically:
 When the program starts you will be prompted to log in.  
 Default credentials are listed on the login screen.
 
-> Login accounts are saved to `kpfl_users.txt` and persist between sessions.
+- **Register** creates a League Commissioner, Team Manager, Stadium Coordinator or Shop Manager account. The administrator account is built in.
+- **Change Password** needs the current password.
+
+> Login accounts are saved to `kpfl_users.txt` and persist between sessions. Passwords are stored as plain text, so do not reuse a real one.
 
 ---
 

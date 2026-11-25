@@ -365,7 +365,40 @@ void runAutomatedTestSuite(FootballLeague& league,
     oldData.restoreFixture("FX002", "2026-12-01", "15:30", &ruleA, &ruleC, &closedGround, {"O91"}, &oldResult);
     cout << (oldData.getFixtures().size() == 2 ? "[PASS]" : "[FAIL]") << " Older overlapping fixtures still load\n";
 
-    cout << "\n[ALL 36 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 37-41. Accounts: register, change password and reload
+    const string userFile = (tmp / "kpfl_test_users.txt").string();
+    filesystem::remove(userFile);
+    AuthService accounts(userFile);
+    accounts.registerUser("newuser", "secret1", "New User", UserRole::TEAM_MANAGER);
+    expectException<AuthException>("Registering an administrator", [&] {
+        accounts.registerUser("boss", "secret1", "Boss", UserRole::ADMIN_ALL);
+    });
+    expectException<AuthException>("Registering a taken username", [&] {
+        accounts.registerUser("ADMIN", "secret1", "Copy", UserRole::SHOP_MANAGER);
+    });
+    expectException<AuthException>("Changing a password with the wrong current one", [&] {
+        accounts.changePassword("newuser", "wrong", "secret2");
+    });
+    accounts.changePassword("newuser", "secret1", "secret2");
+    accounts.changePassword("admin", "admin123", "admin456");
+    AuthService reloadedAccounts(userFile);
+    const UserAccount* again = reloadedAccounts.login("newuser", "secret2");
+    bool accountsOk = again && again->role == UserRole::TEAM_MANAGER && again->displayName == "New User"
+        && !reloadedAccounts.login("newuser", "secret1")
+        && reloadedAccounts.login("admin", "admin456") && !reloadedAccounts.login("admin", "admin123")
+        && !accounts.usernameError("ab").empty() && !accounts.usernameError("#name").empty()
+        && !accounts.usernameError("a|b").empty() && accounts.usernameError("ann.b-1").empty()
+        && !AuthService::passwordError("short").empty() && !AuthService::passwordError("has space").empty()
+        && !AuthService::passwordError("has|pipe").empty();
+    cout << (accountsOk ? "[PASS]" : "[FAIL]") << " Accounts and passwords survive reload\n";
+    {
+        ofstream damaged(userFile, ios::app);
+        damaged << "bad|secret1|NOT_A_ROLE|Bad\n";
+    }
+    expectException<PersistenceException>("Account file with an unknown role", [&] { AuthService broken(userFile); });
+    filesystem::remove(userFile);
+
+    cout << "\n[ALL 41 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {

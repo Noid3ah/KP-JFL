@@ -88,3 +88,9 @@ class PersistenceException : public JFLException {
 public:
     explicit PersistenceException(const string& msg) : JFLException(msg) {}
 };
+
+// registering, logging in or changing a password was refused
+class AuthException : public JFLException {
+public:
+    explicit AuthException(const string& msg) : JFLException(msg) {}
+};
