@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <cctype>
 #include "exceptions.h"
 
 using namespace std;
@@ -39,6 +40,13 @@ public:
     int getSeatingCapacity() const { return seatingCapacity; }
     const string& getFieldCondition() const { return fieldCondition; }
     const vector<string>& getAssignedTeamIds() const { return assignedTeamIds; }
+
+    // a stadium under maintenance can't host matches; older data may say "Under Maintenance"
+    bool isPlayable() const {
+        string lower = fieldCondition;
+        for (char& ch : lower) ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+        return lower.find("maintenance") == string::npos;
+    }
 
     void setLocation(const string& loc) { location = loc; }
     void setSeatingCapacity(int cap) {

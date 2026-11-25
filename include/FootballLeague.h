@@ -128,14 +128,13 @@ public:
     string slotConflict(const FootballTeam* home, const FootballTeam* away, const Stadium* stadium,
                              const string& date, const string& time) const {
         for (const auto& fx : fixtures) {
-            if (fx->getDate() != date || fx->getTime() != time) continue;
-            if (fx->involvesTeam(home) || fx->involvesTeam(away)) {
-                return "Team conflict: One of the teams is already booked on "
-                     + date + " at " + time + " (" + fx->getFixtureId() + ").";
-            }
-            if (&fx->getStadium() == stadium) {
-                return "Stadium conflict: " + stadium->getName() + " is already booked on " + date + " at " + time + ".";
-            }
+            if (!slotsOverlap(fx->getDate(), fx->getTime(), date, time)) continue;
+            const string booked = " is already booked on " + fx->getDate() + " at " + fx->getTime() + " ("
+                                + fx->getFixtureId() + "). Matches must start at least "
+                                + to_string(MIN_MINUTES_APART / 60) + " hours apart.";
+            if (fx->involvesTeam(home)) return "Team conflict: " + home->getName() + booked;
+            if (fx->involvesTeam(away)) return "Team conflict: " + away->getName() + booked;
+            if (&fx->getStadium() == stadium) return "Stadium conflict: " + stadium->getName() + booked;
         }
         return "";
     }
@@ -147,6 +146,9 @@ public:
 
         checkEligibility(home);
         checkEligibility(away);
+        if (!stadium->isPlayable()) {
+            throw LeagueException(stadium->getName() + " is under maintenance and cannot host a match.");
+        }
 
         ostringstream oss;
         oss << "FX" << setw(3) << setfill('0') << nextFixtureNo;
@@ -169,7 +171,7 @@ public:
         if (id.size() < 3 || id.compare(0, 2, "FX") != 0) throw invalid_argument("bad fixture ID '" + id + "'");
         const int number = stoi(id.substr(2));
         auto fixture = make_unique<Fixture>(id, date, time, home, away, stadium);
-        for (const auto& officialId : officialIds) fixture->addOfficial(&findOfficial(officialId));
+        for (const auto& officialId : officialIds) fixture->restoreOfficial(&findOfficial(officialId));
         if (result) {
             fixture->setResult(*result);
             fixture->complete();
@@ -190,6 +192,10 @@ public:
         Fixture& fixture = findFixture(fixtureId);
         if (fixture.getStatus() == FixtureStatus::COMPLETED) {
             throw LeagueException("Fixture " + fixtureId + " is already completed.");
+        }
+
+        if (fixture.getOfficials().empty()) {
+            throw LeagueException("Fixture " + fixtureId + " needs a match official before its result can be recorded.");
         }
 
         MatchResult res(homeScore, awayScore);

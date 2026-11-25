@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "Person.h"
+#include "MatchTime.h"
 #include "exceptions.h"
 
 using namespace std;
@@ -37,11 +38,14 @@ public:
 
     const vector<string>& getBookedSlots() const { return bookedSlots; }
 
-    // false if they're marked unavailable or already have that slot booked
+    // false if they're marked unavailable or have a match too close to that slot
     bool isFree(const string& date, const string& time) const {
         if (!available) return false;
-        const string requestedSlot = slotKey(date, time);
-        return find(bookedSlots.begin(), bookedSlots.end(), requestedSlot) == bookedSlots.end();
+        for (const string& slot : bookedSlots) {
+            const size_t space = slot.rfind(' ');
+            if (slotsOverlap(slot.substr(0, space), slot.substr(space + 1), date, time)) return false;
+        }
+        return true;
     }
 
     void assignSlot(const string& date, const string& time) {
@@ -53,6 +57,9 @@ public:
         }
         bookedSlots.push_back(slotKey(date, time));
     }
+
+    // puts back a saved booking without checking it
+    void restoreSlot(const string& date, const string& time) { bookedSlots.push_back(slotKey(date, time)); }
 
     void displayInfo() const override {
         cout << "[MatchOfficial] ID: " << id << " | Name: " << name

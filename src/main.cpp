@@ -313,7 +313,59 @@ void runAutomatedTestSuite(FootballLeague& league,
         && !isValidMoney("1.") && !isValidMoney(".5") && !isValidMoney("1.2.3");
     cout << (formatsOk ? "[PASS]" : "[FAIL]") << " Name, email, phone and money formats\n";
 
-    cout << "\n[ALL 29 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 30. Slots clash when they start less than two hours apart, even across midnight
+    bool slotsOk = slotsOverlap("2026-12-05", "15:00", "2026-12-05", "16:59")
+        && !slotsOverlap("2026-12-05", "15:00", "2026-12-05", "17:00")
+        && slotsOverlap("2026-12-31", "23:30", "2027-01-01", "00:30")
+        && slotsOverlap("2028-02-29", "23:30", "2028-03-01", "00:30")
+        && slotsOverlap("2026-02-28", "23:30", "2026-03-01", "00:30")
+        && !slotsOverlap("2028-02-28", "23:30", "2028-03-01", "00:30")
+        && !slotsOverlap("2026-12-05", "15:00", "2026-12-06", "15:00")
+        && slotsOverlap("banana", "15:00", "banana", "15:00") && !slotsOverlap("banana", "15:00", "apple", "15:00");
+    cout << (slotsOk ? "[PASS]" : "[FAIL]") << " Match slot overlaps\n";
+
+    // 31-35. Overlapping bookings, closed stadiums and results without an official are refused
+    FootballTeam ruleA("T91", "Rule A", "Kingston"), ruleB("T92", "Rule B", "Kingston"), ruleC("T93", "Rule C", "Kingston"),
+                 ruleD("T94", "Rule D", "Kingston");
+    Stadium ruleGround("S91", "Rule Ground", "Kingston", 100), otherGround("S92", "Other Ground", "Kingston", 100),
+            closedGround("S93", "Closed Ground", "Kingston", 100, "Maintenance");
+    MatchOfficial ruleRef("O91", "Rule Ref", 30, "M", "Referee", "Grade A");
+    FootballLeague rules("Rules");
+    for (auto* t : {&ruleA, &ruleB, &ruleC, &ruleD}) {
+        t->setRegistered(true);
+        rules.addTeam(t);
+    }
+    rules.addOfficial(&ruleRef);
+    rules.scheduleFixture(&ruleA, &ruleB, &ruleGround, "2026-12-01", "15:00");
+    rules.assignOfficial("FX001", "O91");
+    expectException<SchedulingConflictException>("Team booked 30 minutes after another match", [&] {
+        rules.scheduleFixture(&ruleA, &ruleC, &otherGround, "2026-12-01", "15:30");
+    });
+    expectException<SchedulingConflictException>("Stadium booked 30 minutes after another match", [&] {
+        rules.scheduleFixture(&ruleC, &ruleD, &ruleGround, "2026-12-01", "15:30");
+    });
+    rules.scheduleFixture(&ruleC, &ruleD, &otherGround, "2026-12-01", "15:30");
+    expectException<OfficialConflictException>("Official booked 30 minutes after another match", [&] {
+        rules.assignOfficial("FX002", "O91");
+    });
+    expectException<LeagueException>("Match at a stadium under maintenance", [&] {
+        rules.scheduleFixture(&ruleA, &ruleB, &closedGround, "2026-12-08", "15:00");
+    });
+    expectException<LeagueException>("Result without an official", [&] {
+        rules.recordResult("FX002", 1, 0);
+    });
+
+    // 36. Fixtures saved before these rules existed must still load
+    MatchOfficial oldRef("O91", "Rule Ref", 30, "M", "Referee", "Grade A");
+    FootballLeague oldData("Old");
+    for (auto* t : {&ruleA, &ruleB, &ruleC, &ruleD}) oldData.addTeam(t);
+    oldData.addOfficial(&oldRef);
+    const MatchResult oldResult(1, 0);
+    oldData.restoreFixture("FX001", "2026-12-01", "15:00", &ruleA, &ruleB, &closedGround, {"O91"}, nullptr);
+    oldData.restoreFixture("FX002", "2026-12-01", "15:30", &ruleA, &ruleC, &closedGround, {"O91"}, &oldResult);
+    cout << (oldData.getFixtures().size() == 2 ? "[PASS]" : "[FAIL]") << " Older overlapping fixtures still load\n";
+
+    cout << "\n[ALL 36 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {

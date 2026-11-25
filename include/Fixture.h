@@ -8,6 +8,7 @@
 #include "FootballTeam.h"
 #include "MatchOfficial.h"
 #include "MatchResult.h"
+#include "MatchTime.h"
 #include "Stadium.h"
 #include "Ticket.h"
 
@@ -15,33 +16,6 @@ using namespace std;
 
 // tracks whether a match is still upcoming or has been played
 enum class FixtureStatus { SCHEDULED, COMPLETED };
-
-// checks that text matches a pattern where 'd' stands for any digit
-inline bool matchesDigits(const string& text, const string& pattern) {
-    if (text.size() != pattern.size()) return false;
-    for (size_t i = 0; i < text.size(); ++i) {
-        const bool digit = text[i] >= '0' && text[i] <= '9';
-        if (pattern[i] == 'd' ? !digit : text[i] != pattern[i]) return false;
-    }
-    return true;
-}
-
-// a real calendar date as YYYY-MM-DD
-inline bool isValidDate(const string& date) {
-    if (!matchesDigits(date, "dddd-dd-dd")) return false;
-    const int year = stoi(date.substr(0, 4));
-    const int month = stoi(date.substr(5, 2));
-    const int day = stoi(date.substr(8, 2));
-    if (year < 1 || month < 1 || month > 12) return false;
-    const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-    const int days[] = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    return day >= 1 && day <= days[month - 1];
-}
-
-// a 24-hour time as HH:MM
-inline bool isValidTime(const string& time) {
-    return matchesDigits(time, "dd:dd") && stoi(time.substr(0, 2)) < 24 && stoi(time.substr(3, 2)) < 60;
-}
 
 // One scheduled match — holds pointers to the two teams and the venue.
 // Owns the result and ticket objects for this game.
@@ -98,17 +72,8 @@ public:
     const MatchResult* getResult() const { return result.get(); }
     const vector<Ticket>& getTickets() const { return tickets; }
 
-    bool sameSlot(const Fixture& other) const {
-        return date == other.date && time == other.time;
-    }
-
     bool involvesTeam(const FootballTeam* team) const {
         return team == home || team == away;
-    }
-
-    bool clashesWith(const Fixture& other) const {
-        const bool sameTeam = involvesTeam(other.home) || involvesTeam(other.away);
-        return sameSlot(other) && sameTeam;
     }
 
     void addOfficial(MatchOfficial* official) {
@@ -130,6 +95,15 @@ public:
         }
 
         official->assignSlot(date, time);
+        officials.push_back(official);
+    }
+
+    // puts back a saved official without the booking check, so older bookings still load
+    void restoreOfficial(MatchOfficial* official) {
+        for (MatchOfficial* assigned : officials) {
+            if (assigned == official) throw LeagueException("duplicate official " + official->getId());
+        }
+        official->restoreSlot(date, time);
         officials.push_back(official);
     }
 

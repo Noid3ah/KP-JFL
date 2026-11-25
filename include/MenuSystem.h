@@ -328,6 +328,19 @@ private:
         });
     }
 
+    // only accepts a stadium that can host a match
+    Stadium* pickPlayableStadium() {
+        while (true) {
+            Stadium* stadium = pickStadium();
+            if (stadium->isPlayable()) return stadium;
+            cout << "[ERROR] " << stadium->getName() << " is under maintenance. Choose another.\n";
+        }
+    }
+
+    void confirmRemoval(const string& name) {
+        if (pick("Remove " + name + "?", {"Yes, remove", "No, keep"}) != 0) throw InputCancelled{};
+    }
+
     Fixture& pickFixture() {
         return *pickFrom("Fixture", league.getFixtures(), [](const unique_ptr<Fixture>& fx) {
             return "[" + fx->getFixtureId() + "] " + fx->getHome().getName() + " vs " + fx->getAway().getName()
@@ -579,7 +592,7 @@ public:
                     cout << "=== SCHEDULE NEW FIXTURE ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* home = pickEligibleTeam("Home Team");
                     FootballTeam* away = pickEligibleTeam("Away Team", home);
-                    Stadium* stad = pickStadium();
+                    Stadium* stad = pickPlayableStadium();
 
                     string date, time;
                     cout << "\n";
@@ -608,8 +621,8 @@ public:
                         });
                         offId = official->getId();
                         if (official->isFree(fx.getDate(), fx.getTime())) break;
-                        cout << "[ERROR] " << official->getName() << " is not free on " << fx.getDate()
-                                  << " at " << fx.getTime() << ". Choose another.\n";
+                        cout << "[ERROR] " << official->getName() << " has a match within " << MIN_MINUTES_APART / 60 << " hours of " << fx.getDate()
+                                  << " " << fx.getTime() << ". Choose another.\n";
                     }
 
                     league.assignOfficial(fxId, offId);
@@ -619,7 +632,13 @@ public:
                 } else if (ch == 5) {
                     clearScreen();
                     cout << "=== RECORD MATCH RESULT ===\nType 'cancel' at any time to go back.\n\n";
-                    const string fxId = pickOpenFixture().getFixtureId();
+                    Fixture* chosen = &pickOpenFixture();
+                    while (chosen->getOfficials().empty()) {
+                        cout << "[ERROR] " << chosen->getFixtureId()
+                             << " has no official yet. Assign one first, or choose another.\n";
+                        chosen = &pickOpenFixture();
+                    }
+                    const string fxId = chosen->getFixtureId();
                     int homeScore, awayScore;
                     cout << "\n";
                     homeScore = askInt("Enter Home Team Score", 0, 99);
@@ -803,7 +822,9 @@ public:
                     clearScreen();
                     cout << "=== REMOVE PLAYER FROM SQUAD ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
-                    const string pId = pickPlayer(*t).getId();
+                    const Player& leaving = pickPlayer(*t);
+                    const string pId = leaving.getId();
+                    confirmRemoval(leaving.getName());
 
                     t->removePlayer(pId);
                     DataPersistence::savePlayers(league, "kpfl_players.txt");
@@ -813,7 +834,9 @@ public:
                     clearScreen();
                     cout << "=== REMOVE COACH FROM TEAM ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
-                    const string cId = pickCoach(*t).getId();
+                    const Coach& leaving = pickCoach(*t);
+                    const string cId = leaving.getId();
+                    confirmRemoval(leaving.getName());
 
                     t->removeCoach(cId);
                     DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
