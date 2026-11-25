@@ -542,13 +542,13 @@ public:
             std::cout << "      [PERSON 2] TEAM & PERSONNEL MANAGEMENT MENU     \n";
             std::cout << "------------------------------------------------------\n";
             std::cout << "  1. View All Registered Teams & Rosters\n";
-            std::cout << "  2. Register New Football Team\n";
-            std::cout << "  3. Add Player to Team Squad\n";
-            std::cout << "  4. Add Coach to Team Staff\n";
-            std::cout << "  5. Remove Player from Team\n";
-            std::cout << "  6. Search Team Details\n";
-            std::cout << "  7. Update Player Details\n";
-            std::cout << "  8. Update Coach Details\n";
+            std::cout << "  2. Search Team Details\n";
+            std::cout << "  3. Register New Football Team\n";
+            std::cout << "  4. Add Player to Team Squad\n";
+            std::cout << "  5. Add Coach to Team Staff\n";
+            std::cout << "  6. Update Player Details\n";
+            std::cout << "  7. Update Coach Details\n";
+            std::cout << "  8. Remove Player from Team\n";
             std::cout << "  9. Remove Coach from Team\n";
             std::cout << "  10. " << (currentUser->role == UserRole::ADMIN_ALL ? "Return to Master Menu" : "Log Out") << "\n";
             std::cout << "------------------------------------------------------\n";
@@ -566,6 +566,11 @@ public:
                     }
                     pausePrompt();
                 } else if (ch == 2) {
+                    clearScreen();
+                    std::cout << "=== SEARCH TEAM DETAILS ===\nType 'cancel' at any time to go back.\n\n";
+                    pickTeam()->displayTeamInfo();
+                    pausePrompt();
+                } else if (ch == 3) {
                     clearScreen();
                     std::cout << "=== REGISTER NEW TEAM ===\nType 'cancel' at any time to go back.\n\n";
                     std::string regNo, name, city;
@@ -592,7 +597,7 @@ public:
                     DataPersistence::saveTeams(league, "kpfl_teams.txt");
                     std::cout << "\n[SUCCESS] Registered " << name << "! (Saved to kpfl_teams.txt)\n";
                     pausePrompt();
-                } else if (ch == 3) {
+                } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== ADD PLAYER TO SQUAD ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
@@ -612,7 +617,7 @@ public:
                     DataPersistence::savePlayers(league, "kpfl_players.txt");
                     std::cout << "\n[SUCCESS] Added player " << pName << " (#" << jersey << ") to " << t->getName() << "!\n";
                     pausePrompt();
-                } else if (ch == 4) {
+                } else if (ch == 5) {
                     clearScreen();
                     std::cout << "=== ADD COACH TO TEAM ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
@@ -633,22 +638,7 @@ public:
                     DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
                     std::cout << "\n[SUCCESS] Added coach " << cName << " to " << t->getName() << "!\n";
                     pausePrompt();
-                } else if (ch == 5) {
-                    clearScreen();
-                    std::cout << "=== REMOVE PLAYER FROM SQUAD ===\nType 'cancel' at any time to go back.\n\n";
-                    FootballTeam* t = pickTeam();
-                    const std::string pId = pickPlayer(*t).getId();
-
-                    t->removePlayer(pId);
-                    DataPersistence::savePlayers(league, "kpfl_players.txt");
-                    std::cout << "\n[SUCCESS] Removed player " << pId << " from squad.\n";
-                    pausePrompt();
                 } else if (ch == 6) {
-                    clearScreen();
-                    std::cout << "=== SEARCH TEAM DETAILS ===\nType 'cancel' at any time to go back.\n\n";
-                    pickTeam()->displayTeamInfo();
-                    pausePrompt();
-                } else if (ch == 7) {
                     clearScreen();
                     std::cout << "=== UPDATE PLAYER DETAILS ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
@@ -666,7 +656,7 @@ public:
                     DataPersistence::savePlayers(league, "kpfl_players.txt");
                     std::cout << "\n[SUCCESS] Updated player " << name << " (#" << jersey << ").\n";
                     pausePrompt();
-                } else if (ch == 8) {
+                } else if (ch == 7) {
                     clearScreen();
                     std::cout << "=== UPDATE COACH DETAILS ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
@@ -683,6 +673,16 @@ public:
                     t->updateCoach(cId, name, age, qual, role, exp);
                     DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
                     std::cout << "\n[SUCCESS] Updated coach " << name << ".\n";
+                    pausePrompt();
+                } else if (ch == 8) {
+                    clearScreen();
+                    std::cout << "=== REMOVE PLAYER FROM SQUAD ===\nType 'cancel' at any time to go back.\n\n";
+                    FootballTeam* t = pickTeam();
+                    const std::string pId = pickPlayer(*t).getId();
+
+                    t->removePlayer(pId);
+                    DataPersistence::savePlayers(league, "kpfl_players.txt");
+                    std::cout << "\n[SUCCESS] Removed player " << pId << " from squad.\n";
                     pausePrompt();
                 } else if (ch == 9) {
                     clearScreen();
@@ -728,8 +728,8 @@ public:
             std::cout << "  3. Update Stadium Capacity / Field Condition\n";
             std::cout << "  4. Generate Tickets for a Fixture\n";
             std::cout << "  5. Sell Ticket to Spectator\n";
-            std::cout << "  6. Register New Spectator\n";
-            std::cout << "  7. View All Spectators\n";
+            std::cout << "  6. View All Spectators\n";
+            std::cout << "  7. Register New Spectator\n";
             std::cout << "  8. " << (currentUser->role == UserRole::ADMIN_ALL ? "Return to Master Menu" : "Log Out") << "\n";
             std::cout << "------------------------------------------------------\n";
             std::cout << "Enter choice (1-8): ";
@@ -813,6 +813,10 @@ public:
                     pausePrompt();
                 } else if (ch == 6) {
                     clearScreen();
+                    for (const auto* sp : league.getSpectators()) sp->displayInfo();
+                    pausePrompt();
+                } else if (ch == 7) {
+                    clearScreen();
                     std::cout << "=== REGISTER SPECTATOR ===\nType 'cancel' at any time to go back.\n\n";
 
                     std::string spId, name, gender, email, phone, prefTeam;
@@ -833,10 +837,6 @@ public:
                     league.addSpectator(sp);
                     DataPersistence::saveSpectators(league, "kpfl_spectators.txt");
                     std::cout << "\n[SUCCESS] Spectator " << name << " registered successfully!\n";
-                    pausePrompt();
-                } else if (ch == 7) {
-                    clearScreen();
-                    for (const auto* sp : league.getSpectators()) sp->displayInfo();
                     pausePrompt();
                 } else if (ch == 8) {
                     if (currentUser->role != UserRole::ADMIN_ALL) {
