@@ -131,6 +131,17 @@ public:
         officials.push_back(official);
     }
 
+    bool hasSoldTickets() const {
+        for (const auto& t : tickets) if (t.getIsSold()) return true;
+        return false;
+    }
+
+    int ticketsLeft(TicketCategory cat) const {
+        int left = 0;
+        for (const auto& t : tickets) if (!t.getIsSold() && t.getCategory() == cat) ++left;
+        return left;
+    }
+
     // generates tickets per seating category — total can't exceed stadium cap
     void generateTickets(int bleacherCount, int grandstandCount, int vipCount) {
         int total = bleacherCount + grandstandCount + vipCount;
@@ -140,10 +151,8 @@ public:
         }
 
         // regenerating would erase tickets people have already bought
-        for (const auto& t : tickets) {
-            if (t.getIsSold()) {
-                throw StadiumTicketingException("Cannot regenerate tickets for " + fixtureId + ": some are already sold.");
-            }
+        if (hasSoldTickets()) {
+            throw StadiumTicketingException("Cannot regenerate tickets for " + fixtureId + ": some are already sold.");
         }
 
         tickets.clear();

@@ -9,6 +9,8 @@
 #include <limits>
 #include <cstdlib>
 #include <cctype>
+#include <cmath>
+#include <functional>
 #include "AuthService.h"
 #include "FootballLeague.h"
 #include "LeagueCommissioner.h"
@@ -93,20 +95,32 @@ private:
         });
     }
 
-    std::string askId(const std::string& label) {
-        return askUntil(label, "", [](const std::string& in) {
-            return std::string(in.empty() || in.find_first_of(" \t|") != std::string::npos
-                                   ? "Enter an ID without spaces or '|'." : "");
+    // asks for an ID that none of the given items use yet; upper and lower case count as the same
+    template <typename Items, typename Describe>
+    std::string askNewId(const std::string& label, const Items& items, Describe describe) {
+        return askUntil(label, "", [&](const std::string& in) -> std::string {
+            if (in.empty() || in.find_first_of(" \t|") != std::string::npos) return "Enter an ID without spaces or '|'.";
+            for (const auto& item : items) {
+                const std::pair<std::string, std::string> idAndName = describe(item);
+                if (toLower(idAndName.first) == toLower(in)) {
+                    return in + " already belongs to " + idAndName.second + ". Choose another.";
+                }
+            }
+            return "";
         });
     }
 
-    int askInt(const std::string& label, int min, int max, const std::string& current = "") {
+    // extraCheck, if given, returns an error message for a number that is in range but still not allowed
+    int askInt(const std::string& label, int min, int max, const std::string& current = "",
+               const std::function<std::string(int)>& extraCheck = nullptr) {
         const std::string text = askUntil(label, current, [&](const std::string& in) {
             std::istringstream ss(in);
             int v;
             const bool whole = (ss >> v) && (ss >> std::ws).eof();
-            return std::string(whole && v >= min && v <= max ? ""
-                : "Enter a whole number from " + std::to_string(min) + " to " + std::to_string(max) + ".");
+            if (!whole || v < min || v > max) {
+                return "Enter a whole number from " + std::to_string(min) + " to " + std::to_string(max) + ".";
+            }
+            return extraCheck ? extraCheck(v) : std::string();
         });
         return std::stoi(text);
     }
@@ -118,6 +132,23 @@ private:
             return std::string(ok ? "" : "Enter an amount such as 8500 or 8500.50.");
         });
         return std::stod(text);
+    }
+
+    static std::string money(double amount) {
+        std::ostringstream out;
+        out << "JMD $" << std::fixed << std::setprecision(2) << amount;
+        return out.str();
+    }
+
+    int askJersey(const FootballTeam& team, const std::string& label, const std::string& playerId, const std::string& current = "") {
+        return askInt(label, 1, 99, current, [&](int number) -> std::string {
+            for (const auto& p : team.getSquad()) {
+                if (p.getId() != playerId && p.getJerseyNumber() == number) {
+                    return "#" + std::to_string(number) + " is already taken by " + p.getName() + ". Choose another.";
+                }
+            }
+            return "";
+        });
     }
 
     std::string askDate(const std::string& label) {
@@ -185,6 +216,25 @@ private:
         return pickFrom(title, teams, [](const FootballTeam* t) {
             return "[" + t->getRegNumber() + "] " + t->getName() + (t->isSuspended() ? " (SUSPENDED)" : "");
         });
+    }
+
+    // only accepts a team that is allowed to play
+    FootballTeam* pickEligibleTeam(const std::string& title, const FootballTeam* exclude = nullptr) {
+        while (true) {
+            FootballTeam* team = pickTeam(title, exclude);
+            if (team->isRegistered() && !team->isSuspended()) return team;
+            std::cout << "[ERROR] " << team->getName() << " is " << (team->isSuspended() ? "suspended" : "not registered")
+                      << " and cannot be scheduled.\n";
+        }
+    }
+
+    // only accepts a fixture that has not been played
+    Fixture& pickOpenFixture() {
+        while (true) {
+            Fixture& fx = pickFixture();
+            if (fx.getStatus() != FixtureStatus::COMPLETED) return fx;
+            std::cout << "[ERROR] " << fx.getFixtureId() << " is already completed. Choose another.\n";
+        }
     }
 
     Stadium* pickStadium() {
@@ -455,14 +505,19 @@ public:
                 } else if (ch == 3) {
                     clearScreen();
                     std::cout << "=== SCHEDULE NEW FIXTURE ===\nType 'cancel' at any time to go back.\n\n";
-                    FootballTeam* home = pickTeam("Home Team");
-                    FootballTeam* away = pickTeam("Away Team", home);
+                    FootballTeam* home = pickEligibleTeam("Home Team");
+                    FootballTeam* away = pickEligibleTeam("Away Team", home);
                     Stadium* stad = pickStadium();
 
                     std::string date, time;
                     std::cout << "\n";
-                    date = askDate("Enter Date (YYYY-MM-DD, e.g. 2026-12-05)");
-                    time = askTime("Enter Time (HH:MM, e.g. 15:00)");
+                    while (true) {
+                        date = askDate("Enter Date (YYYY-MM-DD, e.g. 2026-12-05)");
+                        time = askTime("Enter Time (HH:MM, e.g. 15:00)");
+                        const std::string conflict = league.slotConflict(home, away, stad, date, time);
+                        if (conflict.empty()) break;
+                        std::cout << "[ERROR] " << conflict << " Enter another date and time.\n";
+                    }
 
                     Fixture& fx = league.scheduleFixture(home, away, stad, date, time);
                     DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
@@ -472,10 +527,18 @@ public:
                 } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== ASSIGN MATCH OFFICIAL ===\nType 'cancel' at any time to go back.\n\n";
-                    const std::string fxId = pickFixture().getFixtureId();
-                    const std::string offId = pickFrom("Official", league.getOfficials(), [](const MatchOfficial* o) {
-                        return "[" + o->getId() + "] " + o->getName() + " (" + o->getRole() + ", " + o->getRank() + ")";
-                    })->getId();
+                    Fixture& fx = pickOpenFixture();
+                    const std::string fxId = fx.getFixtureId();
+                    std::string offId;
+                    while (true) {
+                        const MatchOfficial* official = pickFrom("Official", league.getOfficials(), [](const MatchOfficial* o) {
+                            return "[" + o->getId() + "] " + o->getName() + " (" + o->getRole() + ", " + o->getRank() + ")";
+                        });
+                        offId = official->getId();
+                        if (official->isFree(fx.getDate(), fx.getTime())) break;
+                        std::cout << "[ERROR] " << official->getName() << " is not free on " << fx.getDate()
+                                  << " at " << fx.getTime() << ". Choose another.\n";
+                    }
 
                     league.assignOfficial(fxId, offId);
                     DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
@@ -484,7 +547,7 @@ public:
                 } else if (ch == 5) {
                     clearScreen();
                     std::cout << "=== RECORD MATCH RESULT ===\nType 'cancel' at any time to go back.\n\n";
-                    const std::string fxId = pickFixture().getFixtureId();
+                    const std::string fxId = pickOpenFixture().getFixtureId();
                     int homeScore, awayScore;
                     std::cout << "\n";
                     homeScore = askInt("Enter Home Team Score", 0, 99);
@@ -579,15 +642,9 @@ public:
                         std::cout << "  - [" << t->getRegNumber() << "] " << t->getName() << " (" << t->getHomeCity() << ")\n";
                     }
                     std::cout << "\n";
-                    while (true) {
-                        regNo = askId("Enter Registration Number (e.g. T07)");
-                        const FootballTeam* taken = nullptr;
-                        for (const auto* t : league.getTeams()) {
-                            if (toLower(t->getRegNumber()) == toLower(regNo)) taken = t; // t01 counts as T01
-                        }
-                        if (!taken) break;
-                        std::cout << "[ERROR] " << regNo << " already belongs to " << taken->getName() << ". Choose another.\n";
-                    }
+                    regNo = askNewId("Enter Registration Number (e.g. T07)", league.getTeams(), [](const FootballTeam* t) {
+                        return std::make_pair(t->getRegNumber(), t->getName());
+                    });
                     name = askText("Enter Team Name");
                     city = pickParish("City/Parish");
 
@@ -605,12 +662,14 @@ public:
                     int age, jersey;
 
                     std::cout << "\nAdding player to " << t->getName() << ":\n";
-                    pId = askId("Enter New Player ID (e.g. PL010)");
+                    pId = askNewId("Enter New Player ID (e.g. PL010)", t->getSquad(), [](const Player& x) {
+                        return std::make_pair(x.getId(), x.getName());
+                    });
                     pName = askText("Enter Player Name");
-                    age = askInt("Enter Age (Rule: Must be >= 16)", 16, 120);
+                    age = askInt("Enter Age (Rule: Must be >= 16)", 16, 50);
                     gender = pickGender();
                     pos = pickPosition();
-                    jersey = askInt("Enter Jersey Number (1-99, cannot conflict)", 1, 99);
+                    jersey = askJersey(*t, "Enter Jersey Number (1-99, cannot conflict)", pId);
 
                     Player p(pId, pName, age, gender, pos, jersey);
                     t->addPlayer(p);
@@ -625,9 +684,11 @@ public:
                     int age, exp;
 
                     std::cout << "\nAdding coach to " << t->getName() << ":\n";
-                    cId = askId("Enter New Coach ID (e.g. CO03)");
+                    cId = askNewId("Enter New Coach ID (e.g. CO03)", t->getCoachingStaff(), [](const Coach& x) {
+                        return std::make_pair(x.getId(), x.getName());
+                    });
                     cName = askText("Enter Coach Name");
-                    age = askInt("Enter Age (Rule: Must be >= 21)", 21, 120);
+                    age = askInt("Enter Age (Rule: Must be >= 21)", 21, 80);
                     gender = pickGender();
                     qual = pickQualification();
                     role = pickCoachRole();
@@ -647,9 +708,9 @@ public:
 
                     std::cout << "\nPress Enter to keep the current value.\n";
                     std::string name = askText("Name", p->getName());
-                    int age = askInt("Age (>= 16)", 16, 120, std::to_string(p->getAge()));
+                    int age = askInt("Age (>= 16)", 16, 50, std::to_string(p->getAge()));
                     std::string pos = pickPosition(p->getPosition());
-                    int jersey = askInt("Jersey Number (1-99)", 1, 99, std::to_string(p->getJerseyNumber()));
+                    int jersey = askJersey(*t, "Jersey Number (1-99)", pId, std::to_string(p->getJerseyNumber()));
                     std::string status = pickText("Status", {"Active", "Injured", "Benched", "Suspended"}, p->getPlayingStatus());
 
                     t->updatePlayer(pId, name, age, pos, jersey, status);
@@ -665,7 +726,7 @@ public:
 
                     std::cout << "\nPress Enter to keep the current value.\n";
                     const std::string name = askText("Name", c.getName());
-                    const int age = askInt("Age (>= 21)", 21, 120, std::to_string(c.getAge()));
+                    const int age = askInt("Age (>= 21)", 21, 80, std::to_string(c.getAge()));
                     const std::string qual = pickQualification(c.getQualification());
                     const std::string role = pickCoachRole(c.getCoachingRole());
                     const int exp = askInt("Years Experience", 0, 80, std::to_string(c.getYearsExperience()));
@@ -748,7 +809,9 @@ public:
                     std::cout << "=== REGISTER NEW STADIUM ===\nType 'cancel' at any time to go back.\n\n";
                     std::string sId, name, loc, cond;
                     int cap;
-                    sId = askId("Enter Stadium ID (e.g. S03)");
+                    sId = askNewId("Enter Stadium ID (e.g. S03)", league.getStadiums(), [](const Stadium* x) {
+                        return std::make_pair(x->getStadiumId(), x->getName());
+                    });
                     name = askText("Enter Stadium Name");
                     loc = pickParish("Location");
                     cap = askInt("Enter Seating Capacity", 1, 1000000);
@@ -776,12 +839,17 @@ public:
                 } else if (ch == 4) {
                     clearScreen();
                     std::cout << "=== GENERATE TICKETS FOR FIXTURE ===\nType 'cancel' at any time to go back.\n\n";
-                    Fixture& fx = pickFixture();
-                    int bleachers, grandstand, vip;
-                    std::cout << "\n";
-                    bleachers = askInt("Number of Bleachers Tickets ($1,500)", 0, 1000000);
-                    grandstand = askInt("Number of Grandstand Tickets ($3,500)", 0, 1000000);
-                    vip = askInt("Number of VIP Tickets ($7,000)", 0, 1000000);
+                    Fixture* chosen = &pickFixture();
+                    while (chosen->hasSoldTickets()) {
+                        std::cout << "[ERROR] Some tickets for " << chosen->getFixtureId() << " are already sold. Choose another.\n";
+                        chosen = &pickFixture();
+                    }
+                    Fixture& fx = *chosen;
+                    const int capacity = fx.getStadium().getSeatingCapacity();
+                    std::cout << "\nStadium capacity: " << capacity << " tickets in total.\n";
+                    const int bleachers = askInt("Number of Bleachers Tickets ($1,500)", 0, capacity);
+                    const int grandstand = askInt("Number of Grandstand Tickets ($3,500)", 0, capacity - bleachers);
+                    const int vip = askInt("Number of VIP Tickets ($7,000)", 0, capacity - bleachers - grandstand);
 
                     fx.generateTickets(bleachers, grandstand, vip);
                     DataPersistence::saveTickets(league, "kpfl_tickets.txt");
@@ -802,7 +870,14 @@ public:
                         return "[" + sp->getId() + "] " + sp->getName() + " (Tickets owned: " + std::to_string(sp->getTicketsBought()) + ")";
                     });
                     const std::vector<TicketCategory> categories = {TicketCategory::BLEACHERS, TicketCategory::GRANDSTAND, TicketCategory::VIP};
-                    const TicketCategory cat = pickFrom("Category", categories, [](TicketCategory c) { return ticketCategoryToString(c); });
+                    TicketCategory cat;
+                    while (true) {
+                        cat = pickFrom("Category", categories, [&](TicketCategory c) {
+                            return ticketCategoryToString(c) + " (" + std::to_string(fx.ticketsLeft(c)) + " left)";
+                        });
+                        if (fx.ticketsLeft(cat) > 0) break;
+                        std::cout << "[ERROR] " << ticketCategoryToString(cat) << " is sold out. Choose another.\n";
+                    }
 
                     Ticket* t = fx.sellTicket(cat, *spectator);
                     // spectators first, so a saved ticket never refers to a missing buyer
@@ -821,7 +896,9 @@ public:
 
                     std::string spId, name, gender, email, phone, prefTeam;
                     int age;
-                    spId = askId("Enter New Spectator ID (e.g. SP03, SP04)");
+                    spId = askNewId("Enter New Spectator ID (e.g. SP03, SP04)", league.getSpectators(), [](const Spectator* x) {
+                        return std::make_pair(x->getId(), x->getName());
+                    });
                     name = askText("Enter Full Name");
                     age = askInt("Enter Age", 1, 120);
                     gender = pickGender();
@@ -893,7 +970,9 @@ public:
                     std::string pId, name, size, team;
                     double price;
                     int stock;
-                    pId = askId("Enter Product ID (e.g. M03, M04)");
+                    pId = askNewId("Enter Product ID (e.g. M03, M04)", shop.getInventory(), [](const std::unique_ptr<Product>& x) {
+                        return std::make_pair(x->getProductId(), x->getName());
+                    });
                     name = askText("Enter Item Name (e.g. Cavalier SC Home Jersey)");
                     price = askMoney("Enter Price in JMD (e.g. 8500)");
                     stock = askInt("Enter Stock Quantity (e.g. 30)", 0, 1000000);
@@ -914,7 +993,9 @@ public:
                     std::string pId, name;
                     double price;
                     int stock;
-                    pId = askId("Enter Product ID (e.g. F04)");
+                    pId = askNewId("Enter Product ID (e.g. F04)", shop.getInventory(), [](const std::unique_ptr<Product>& x) {
+                        return std::make_pair(x->getProductId(), x->getName());
+                    });
                     name = askText("Enter Item Name");
                     price = askMoney("Enter Price (JMD)");
                     stock = askInt("Enter Stock Quantity", 0, 1000000);
@@ -932,25 +1013,41 @@ public:
 
                     std::vector<std::pair<std::string, int>> cart;
                     while (true) {
+                        // stock not yet in this cart
+                        const auto remaining = [&](const Product& p) {
+                            int left = p.getStockQuantity();
+                            for (const auto& item : cart) if (item.first == p.getProductId()) left -= item.second;
+                            return left;
+                        };
                         std::vector<std::string> options;
                         for (const auto& p : shop.getInventory()) {
                             std::ostringstream label;
-                            label << "[" << p->getProductId() << "] " << p->getName() << " (JMD $" << std::fixed << std::setprecision(2)
-                                  << p->getUnitPrice() << ", Stock: " << p->getStockQuantity() << ")";
+                            label << "[" << p->getProductId() << "] " << p->getName() << " (" << money(p->getUnitPrice())
+                                  << ", Stock: " << remaining(*p) << ")";
                             options.push_back(label.str());
                         }
                         options.push_back("Done - go to payment");
                         const std::size_t choice = pick("Product (" + std::to_string(cart.size()) + " in cart)", options);
                         if (choice == options.size() - 1) break;
 
-                        const int qty = askInt("Enter Quantity", 1, 1000000);
-                        cart.push_back({shop.getInventory()[choice]->getProductId(), qty});
+                        const Product& product = *shop.getInventory()[choice];
+                        const int left = remaining(product);
+                        if (left <= 0) {
+                            std::cout << "[ERROR] No more " << product.getName() << " in stock. Choose another.\n";
+                            continue;
+                        }
+                        const int qty = askInt("Enter Quantity", 1, left);
+                        cart.push_back({product.getProductId(), qty});
                     }
 
                     if (!cart.empty()) {
                         double cash;
-                        std::cout << "\n";
-                        cash = askMoney("Enter Cash Tendered (JMD)");
+                        const double due = shop.totalDue(cart);
+                        // rounded up to the cent, so the amount shown is always enough
+                        std::cout << "\nTotal due (including GCT): " << money(std::ceil(due * 100 - 1e-6) / 100) << "\n";
+                        while ((cash = askMoney("Enter Cash Tendered (JMD)")) < due) {
+                            std::cout << "[ERROR] That is less than the total due.\n";
+                        }
 
                         clearScreen();
                         Receipt r = shop.processSale(custName, cart, cash);

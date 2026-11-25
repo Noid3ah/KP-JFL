@@ -71,6 +71,19 @@ public:
 
     const std::vector<std::unique_ptr<Product>>& getInventory() const { return inventory; }
 
+    // what a cart costs including GCT, worked out the same way as processSale
+    double totalDue(const std::vector<std::pair<std::string, int>>& cart) {
+        double subtotal = 0.0;
+        for (const auto& item : cart) {
+            const Product* p = findProduct(item.first);
+            if (!p) throw ShopFinanceException("Product " + item.first + " not found in shop");
+            const double itemTotal = p->getUnitPrice() * item.second;
+            subtotal += itemTotal;
+        }
+        const double gct = subtotal * GCT_RATE;
+        return subtotal + gct;
+    }
+
     // handles a full sale — checks stock, deducts it, applies GCT, and rolls back if payment is short
     Receipt processSale(const std::string& customerName,
                         const std::vector<std::pair<std::string, int>>& cart,

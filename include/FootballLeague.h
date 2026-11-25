@@ -122,6 +122,22 @@ public:
         return nullptr;
     }
 
+    // explains why a slot can't be used, or returns "" if it is free
+    std::string slotConflict(const FootballTeam* home, const FootballTeam* away, const Stadium* stadium,
+                             const std::string& date, const std::string& time) const {
+        for (const auto& fx : fixtures) {
+            if (fx->getDate() != date || fx->getTime() != time) continue;
+            if (fx->involvesTeam(home) || fx->involvesTeam(away)) {
+                return "Team conflict: One of the teams is already booked on "
+                     + date + " at " + time + " (" + fx->getFixtureId() + ").";
+            }
+            if (&fx->getStadium() == stadium) {
+                return "Stadium conflict: " + stadium->getName() + " is already booked on " + date + " at " + time + ".";
+            }
+        }
+        return "";
+    }
+
     // schedules a match — checks both team eligibility and slot conflicts first
     Fixture& scheduleFixture(FootballTeam* home, FootballTeam* away, Stadium* stadium,
                              const std::string& date, const std::string& time) {
@@ -135,16 +151,8 @@ public:
         auto newFixture = std::make_unique<Fixture>(oss.str(), date, time, home, away, stadium);
 
         // make sure no team or stadium is double-booked for this slot
-        for (const auto& fx : fixtures) {
-            if (newFixture->clashesWith(*fx)) {
-                throw SchedulingConflictException("Team conflict: One of the teams is already booked on "
-                                                + date + " at " + time + " (" + fx->getFixtureId() + ").");
-            }
-            if (newFixture->sameSlot(*fx) && &fx->getStadium() == stadium) {
-                throw SchedulingConflictException("Stadium conflict: " + stadium->getName()
-                                                + " is already booked on " + date + " at " + time + ".");
-            }
-        }
+        const std::string conflict = slotConflict(home, away, stadium, date, time);
+        if (!conflict.empty()) throw SchedulingConflictException(conflict);
 
         ++nextFixtureNo;
         fixtures.push_back(std::move(newFixture));
