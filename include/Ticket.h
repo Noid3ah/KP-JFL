@@ -23,6 +23,14 @@ inline std::string ticketCategoryToString(TicketCategory cat) {
     }
 }
 
+inline TicketCategory ticketCategoryFromString(const std::string& text) {
+    for (TicketCategory cat : {TicketCategory::BLEACHERS, TicketCategory::GRANDSTAND,
+                               TicketCategory::VIP, TicketCategory::ULTRA_VIP}) {
+        if (ticketCategoryToString(cat) == text) return cat;
+    }
+    throw std::invalid_argument("unknown ticket category '" + text + "'");
+}
+
 inline double getDefaultCategoryPrice(TicketCategory cat) {
     switch (cat) {
         case TicketCategory::BLEACHERS: return 1500.0; // JMD

@@ -104,6 +104,11 @@ public:
 
     void addSpectator(Spectator* spectator) {
         if (!spectator) throw std::invalid_argument("Spectator pointer cannot be null.");
+        for (const auto* s : spectators) {
+            if (s->getId() == spectator->getId()) {
+                throw LeagueException("Spectator " + spectator->getId() + " already registered.");
+            }
+        }
         spectators.push_back(spectator);
     }
 

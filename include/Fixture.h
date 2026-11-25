@@ -112,6 +112,13 @@ public:
                                             + ") exceeds stadium capacity (" + std::to_string(stadium->getSeatingCapacity()) + ")");
         }
 
+        // regenerating would erase tickets people have already bought
+        for (const auto& t : tickets) {
+            if (t.getIsSold()) {
+                throw StadiumTicketingException("Cannot regenerate tickets for " + fixtureId + ": some are already sold.");
+            }
+        }
+
         tickets.clear();
         int tIndex = 1;
         for (int i = 0; i < bleacherCount; ++i) {
@@ -127,6 +134,9 @@ public:
                                  "VIP-" + std::to_string(i + 1), TicketCategory::VIP);
         }
     }
+
+    // puts back saved tickets — no capacity check, since capacity may have changed after they were issued
+    void restoreTickets(const std::vector<Ticket>& saved) { tickets = saved; }
 
     Ticket* sellTicket(TicketCategory cat, Spectator& spectator) {
         int soldCount = 0;

@@ -513,6 +513,7 @@ public:
 
                     Coach c(cId, cName, age, gender, qual, role, exp);
                     t->addCoach(c);
+                    DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
                     std::cout << "\n[SUCCESS] Added coach " << cName << " to " << t->getName() << "!\n";
                     pausePrompt();
                 } else if (ch == 5) {
@@ -734,6 +735,7 @@ public:
                     for (const auto& fx : league.getFixtures()) {
                         if (fx->getFixtureId() == fxId) {
                             fx->generateTickets(bleachers, grandstand, vip);
+                            DataPersistence::saveTickets(league, "kpfl_tickets.txt");
                             std::cout << "\n[SUCCESS] Generated " << fx->getTickets().size() << " total tickets for " << fx->getFixtureId() << "!\n";
                             found = true;
                             break;
@@ -805,6 +807,9 @@ public:
                                 break;
                             }
                             Ticket* t = fx->sellTicket(cat, *spectator);
+                            // spectators first, so a saved ticket never refers to a missing buyer
+                            DataPersistence::saveSpectators(league, "kpfl_spectators.txt");
+                            DataPersistence::saveTickets(league, "kpfl_tickets.txt");
                             std::cout << "\n[SUCCESS] Ticket sold successfully!\n";
                             t->displayInfo();
                             sold = true;
@@ -838,6 +843,7 @@ public:
 
                     auto sp = new Spectator(spId, name, age, gender, email, phone, prefTeam);
                     league.addSpectator(sp);
+                    DataPersistence::saveSpectators(league, "kpfl_spectators.txt");
                     std::cout << "\n[SUCCESS] Spectator " << name << " registered successfully!\n";
                     pausePrompt();
                 } else if (ch == 7) {
@@ -980,6 +986,9 @@ public:
                     DataPersistence::savePlayers(league, "kpfl_players.txt");
                     DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
                     DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
+                    DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
+                    DataPersistence::saveSpectators(league, "kpfl_spectators.txt");
+                    DataPersistence::saveTickets(league, "kpfl_tickets.txt");
                     DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     DataPersistence::saveTransactions(shop, "kpfl_shop_receipts.txt");
                     std::cout << "\n[SUCCESS] System data exported to kpfl_*.txt files!\n";

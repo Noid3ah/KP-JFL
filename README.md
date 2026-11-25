@@ -48,7 +48,7 @@ g++ -std=c++17 -Wall main.cpp -o main
 
 ## Automated Test Mode
 
-Runs all 21 built-in business rule tests automatically:
+Runs all 24 built-in business rule tests automatically:
 
 **Windows**
 ```powershell
@@ -78,6 +78,11 @@ The program automatically creates and updates these files in the project folder:
 | File | Contents |
 |------|----------|
 | `kpfl_teams.txt` | Team registrations and standings |
+| `kpfl_players.txt` | Team squads |
+| `kpfl_coaches.txt` | Coaching staff |
+| `kpfl_fixtures.txt` | Fixtures, officials and results |
+| `kpfl_spectators.txt` | Registered spectators |
+| `kpfl_tickets.txt` | Match tickets and sales |
 | `kpfl_stadiums.txt` | Stadium info and capacity |
 | `kpfl_shop_inventory.txt` | Shop product stock levels |
 | `kpfl_shop_receipts.txt` | Sales receipts and transactions |

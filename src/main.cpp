@@ -228,7 +228,45 @@ void runAutomatedTestSuite(FootballLeague& league,
     std::cout << (shopA.findProduct("M01")->getStockQuantity() == 8 ? "[PASS]" : "[FAIL]")
               << " Rejected carts leave stock unchanged\n";
 
-    std::cout << "\n[ALL 21 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 22. Coaches, spectators and tickets survive a reload
+    const std::string coachFile = (tmp / "kpfl_test_coaches.txt").string();
+    const std::string fanFile = (tmp / "kpfl_test_spectators.txt").string();
+    const std::string ticketFile = (tmp / "kpfl_test_tickets.txt").string();
+    Spectator fan("SP97", "Test Fan", 30, "M"); // blank email, phone and team
+    before.addSpectator(&fan);
+    fxHome.addCoach(Coach("CO97", "Test Coach", 40, "F", "Pro", "Head Coach", 9));
+    Fixture& ticketed = *before.getFixtures()[1];
+    ticketed.generateTickets(3, 2, 1);
+    ticketed.sellTicket(TicketCategory::VIP, fan);
+    fxGround.setSeatingCapacity(2); // shrinking the venue later must not block loading
+    DataPersistence::saveCoaches(before, coachFile);
+    DataPersistence::saveSpectators(before, fanFile);
+    DataPersistence::saveTickets(before, ticketFile);
+    std::vector<std::unique_ptr<Spectator>> fans;
+    DataPersistence::loadCoaches(after, coachFile);
+    DataPersistence::loadSpectators(after, fans, fanFile);
+    DataPersistence::loadTickets(after, ticketFile);
+    DataPersistence::loadTickets(after, ticketFile); // a second load must not double the count
+    const auto& reTickets = after.getFixtures()[1]->getTickets();
+    const auto& staff = after.findTeam("T97")->getCoachingStaff();
+    bool peopleOk = staff.size() == 1 && staff[0].getYearsExperience() == 9 && staff[0].getTeamId() == "T97"
+        && after.getSpectators().size() == 1 && after.getSpectators()[0]->getTicketsBought() == 1
+        && reTickets.size() == 6 && reTickets[5].getIsSold() && reTickets[5].getSpectatorId() == "SP97"
+        && reTickets[5].getCategory() == TicketCategory::VIP && !reTickets[0].getIsSold()
+        && after.getFixtures()[0]->getTickets().empty();
+    for (const auto& f : {coachFile, fanFile, ticketFile}) std::filesystem::remove(f);
+    std::cout << (peopleOk ? "[PASS]" : "[FAIL]") << " Coaches, spectators and tickets survive reload\n";
+
+    // 23-24. Sold tickets can't be erased and spectator IDs stay unique
+    fxGround.setSeatingCapacity(100);
+    expectException<StadiumTicketingException>("Regenerating tickets after a sale", [&] {
+        ticketed.generateTickets(1, 1, 1);
+    });
+    expectException<LeagueException>("Duplicate spectator ID", [&] {
+        before.addSpectator(&fan);
+    });
+
+    std::cout << "\n[ALL 24 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -239,6 +277,7 @@ int main(int argc, char* argv[]) {
 
     try {
         // Core League Setup
+        std::vector<std::unique_ptr<Spectator>> loadedSpectators; // owns spectators read from file
         std::vector<std::unique_ptr<Stadium>> loadedStadiums;   // owns stadiums read from file
         std::vector<std::unique_ptr<FootballTeam>> loadedTeams; // owns teams read from file
         FootballLeague league("Kingston Premier Football League (KPFL)");
@@ -350,9 +389,19 @@ int main(int argc, char* argv[]) {
             DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
         }
 
-        // Fixtures load last because they refer to teams and stadiums
+        if (std::filesystem::exists("kpfl_coaches.txt")) {
+            DataPersistence::loadCoaches(league, "kpfl_coaches.txt");
+        }
+        if (std::filesystem::exists("kpfl_spectators.txt")) {
+            DataPersistence::loadSpectators(league, loadedSpectators, "kpfl_spectators.txt");
+        }
+
+        // Fixtures refer to teams and stadiums; tickets refer to fixtures and spectators
         if (std::filesystem::exists("kpfl_fixtures.txt")) {
             DataPersistence::loadFixtures(league, "kpfl_fixtures.txt");
+        }
+        if (std::filesystem::exists("kpfl_tickets.txt")) {
+            DataPersistence::loadTickets(league, "kpfl_tickets.txt");
         }
 
         if (std::filesystem::exists("kpfl_shop_inventory.txt")) {

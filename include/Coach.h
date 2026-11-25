@@ -22,6 +22,10 @@ public:
           coachingRole(role),
           yearsExperience(yearsExperience),
           teamId(teamId) {
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((id + name + gender + qualification + role).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Coach details cannot contain '|' or line breaks.");
+        }
         // coaches have to be at least 21
         if (age < 21) {
             throw InvalidAgeException("Coach " + name + " must be at least 21 years old (Entered: " + std::to_string(age) + ").");

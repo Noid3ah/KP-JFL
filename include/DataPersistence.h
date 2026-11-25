@@ -125,6 +125,133 @@ public:
         }
     }
 
+    // format: teamId|coachId|name|age|gender|qualification|role|yearsExperience
+    static void saveCoaches(const FootballLeague& league, const std::string& filename) {
+        std::stringstream out;
+        for (const auto* t : league.getTeams()) {
+            for (const auto& c : t->getCoachingStaff()) {
+                out << t->getRegNumber() << "|" << c.getId() << "|" << c.getName() << "|" << c.getAge() << "|"
+                    << c.getGender() << "|" << c.getQualification() << "|" << c.getCoachingRole() << "|"
+                    << c.getYearsExperience() << "\n";
+            }
+        }
+        writeFile(out.str(), filename);
+    }
+
+    // replaces every team's coaching staff with the saved one
+    static void loadCoaches(FootballLeague& league, const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) throw PersistenceException("Cannot open file for reading: " + filename);
+
+        for (auto* t : league.getTeams()) t->getCoachingStaff().clear();
+
+        std::string line;
+        for (int lineNo = 1; std::getline(file, line); ++lineNo) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            try {
+                const std::vector<std::string> f = split(line, '|');
+                if (f.size() != 8) throw std::invalid_argument("expected 8 fields");
+                FootballTeam* team = league.findTeam(f[0]);
+                if (!team) throw std::invalid_argument("unknown team " + f[0]);
+                team->addCoach(Coach(f[1], f[2], std::stoi(f[3]), f[4], f[5], f[6], std::stoi(f[7])));
+            } catch (const std::exception& e) {
+                throw PersistenceException(filename + " line " + std::to_string(lineNo) + ": " + e.what());
+            }
+        }
+    }
+
+    // format: id|name|age|gender|email|phone|preferredTeam
+    // ticket counts aren't stored; loadTickets works them out from the sold tickets
+    static void saveSpectators(const FootballLeague& league, const std::string& filename) {
+        std::stringstream out;
+        for (const auto* s : league.getSpectators()) {
+            out << s->getId() << "|" << s->getName() << "|" << s->getAge() << "|" << s->getGender() << "|"
+                << s->getEmail() << "|" << s->getPhone() << "|" << s->getPreferredTeam() << "\n";
+        }
+        writeFile(out.str(), filename);
+    }
+
+    // spectators already in the league (the sample ones) are left alone; storage owns the added ones
+    static void loadSpectators(FootballLeague& league, std::vector<std::unique_ptr<Spectator>>& storage, const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) throw PersistenceException("Cannot open file for reading: " + filename);
+
+        std::set<std::string> seeded;
+        for (const auto* s : league.getSpectators()) seeded.insert(s->getId());
+
+        std::string line;
+        for (int lineNo = 1; std::getline(file, line); ++lineNo) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            try {
+                const std::vector<std::string> f = split(line, '|');
+                if (f.size() != 7) throw std::invalid_argument("expected 7 fields");
+                if (seeded.count(f[0])) continue;
+                auto spectator = std::make_unique<Spectator>(f[0], f[1], std::stoi(f[2]), f[3], f[4], f[5], f[6]);
+                league.addSpectator(spectator.get());
+                storage.push_back(std::move(spectator));
+            } catch (const std::exception& e) {
+                throw PersistenceException(filename + " line " + std::to_string(lineNo) + ": " + e.what());
+            }
+        }
+    }
+
+    // format: fixtureId|ticketId|seat|category|price|spectatorId (blank if unsold)
+    static void saveTickets(const FootballLeague& league, const std::string& filename) {
+        std::stringstream out;
+        out << std::fixed << std::setprecision(2);
+        for (const auto& fx : league.getFixtures()) {
+            for (const auto& t : fx->getTickets()) {
+                out << fx->getFixtureId() << "|" << t.getTicketId() << "|" << t.getSeatNumber() << "|"
+                    << ticketCategoryToString(t.getCategory()) << "|" << t.getPrice() << "|" << t.getSpectatorId() << "\n";
+            }
+        }
+        writeFile(out.str(), filename);
+    }
+
+    // call after fixtures and spectators are loaded; replaces every fixture's tickets
+    static void loadTickets(FootballLeague& league, const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) throw PersistenceException("Cannot open file for reading: " + filename);
+
+        std::map<std::string, Fixture*> fixtures;
+        std::map<std::string, Spectator*> spectators;
+        for (const auto& fx : league.getFixtures()) fixtures[fx->getFixtureId()] = fx.get();
+        for (auto* s : league.getSpectators()) {
+            spectators[s->getId()] = s;
+            s->resetTickets();
+        }
+
+        std::map<std::string, std::vector<Ticket>> loaded;
+        std::set<std::string> seen;
+        std::string line;
+        for (int lineNo = 1; std::getline(file, line); ++lineNo) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            try {
+                const std::vector<std::string> f = split(line, '|');
+                if (f.size() != 6) throw std::invalid_argument("expected 6 fields");
+                const auto fx = fixtures.find(f[0]);
+                if (fx == fixtures.end()) throw std::invalid_argument("unknown fixture " + f[0]);
+                if (!seen.insert(f[0] + "|" + f[1]).second) throw std::invalid_argument("duplicate ticket " + f[1]);
+
+                Ticket ticket(f[1], f[0], fx->second->getStadium().getStadiumId(), f[2],
+                              ticketCategoryFromString(f[3]), std::stod(f[4]));
+                if (!f[5].empty()) {
+                    const auto buyer = spectators.find(f[5]);
+                    if (buyer == spectators.end()) throw std::invalid_argument("unknown spectator " + f[5]);
+                    ticket.sellTo(*buyer->second);
+                }
+                loaded[f[0]].push_back(ticket);
+            } catch (const std::exception& e) {
+                throw PersistenceException(filename + " line " + std::to_string(lineNo) + ": " + e.what());
+            }
+        }
+
+        for (const auto& entry : fixtures) entry.second->restoreTickets(loaded[entry.first]);
+    }
+
     static void saveStadiums(const FootballLeague& league, const std::string& filename) {
         std::stringstream file;
 

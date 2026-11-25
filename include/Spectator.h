@@ -19,7 +19,12 @@ public:
           email(email),
           phone(phone),
           preferredTeam(preferredTeam),
-          ticketsBought(0) {}
+          ticketsBought(0) {
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((id + name + gender + email + phone + preferredTeam).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Spectator details cannot contain '|' or line breaks.");
+        }
+    }
 
     const std::string& getEmail() const { return email; }
     const std::string& getPhone() const { return phone; }
@@ -33,6 +38,9 @@ public:
     void incrementTickets(int count = 1) {
         if (count > 0) ticketsBought += count;
     }
+
+    // used when saved tickets are loaded and counted again
+    void resetTickets() { ticketsBought = 0; }
 
     void displayInfo() const override {
         std::cout << "[Spectator] ID: " << id << " | Name: " << name
