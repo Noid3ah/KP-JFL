@@ -666,7 +666,7 @@ public:
                         return std::make_pair(x.getId(), x.getName());
                     });
                     pName = askText("Enter Player Name");
-                    age = askInt("Enter Age (Rule: Must be >= 16)", 16, 50);
+                    age = askInt("Enter Age (Rule: Must be >= 16)", 16, 55);
                     gender = pickGender();
                     pos = pickPosition();
                     jersey = askJersey(*t, "Enter Jersey Number (1-99, cannot conflict)", pId);
@@ -708,7 +708,7 @@ public:
 
                     std::cout << "\nPress Enter to keep the current value.\n";
                     std::string name = askText("Name", p->getName());
-                    int age = askInt("Age (>= 16)", 16, 50, std::to_string(p->getAge()));
+                    int age = askInt("Age (>= 16)", 16, 55, std::to_string(p->getAge()));
                     std::string pos = pickPosition(p->getPosition());
                     int jersey = askJersey(*t, "Jersey Number (1-99)", pId, std::to_string(p->getJerseyNumber()));
                     std::string status = pickText("Status", {"Active", "Injured", "Benched", "Suspended"}, p->getPlayingStatus());
