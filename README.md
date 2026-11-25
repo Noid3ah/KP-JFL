@@ -50,7 +50,7 @@ Run from the project folder. Data files are read from and written to whichever f
 
 ## Automated Test Mode
 
-Runs all 25 built-in business rule tests automatically:
+Runs all 27 built-in business rule tests automatically:
 
 **Windows**
 ```powershell

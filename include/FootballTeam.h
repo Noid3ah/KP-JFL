@@ -162,6 +162,19 @@ public:
         coachingStaff.push_back(copy);
     }
 
+    // updates a coach's details; ID, gender and team are kept
+    // everything is validated before anything changes, returns false if no match found
+    bool updateCoach(const std::string& coachId, const std::string& name, int age,
+                     const std::string& qualification, const std::string& role, int yearsExperience) {
+        for (auto& c : coachingStaff) {
+            if (c.getId() != coachId) continue;
+            // rebuilding through the constructor reuses its name and age rules
+            c = Coach(coachId, name, age, c.getGender(), qualification, role, yearsExperience, regNumber);
+            return true;
+        }
+        return false;
+    }
+
     // removes a coach by ID, returns false if not found
     bool removeCoach(const std::string& coachId) {
         auto it = std::find_if(coachingStaff.begin(), coachingStaff.end(), [&](const Coach& c) {

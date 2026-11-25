@@ -162,9 +162,9 @@ private:
     }
 
     // same, with a last option for typing something not on the list
-    std::string pickOrType(const std::string& title, std::vector<std::string> options) {
+    std::string pickOrType(const std::string& title, std::vector<std::string> options, const std::string& current = "") {
         options.push_back("Other (type it in)");
-        std::string choice = pickText(title, options);
+        std::string choice = pickText(title, options, current);
         if (choice == options.back()) {
             choice = askText("Enter " + title);
         }
@@ -211,10 +211,26 @@ private:
         });
     }
 
+    Coach& pickCoach(FootballTeam& team) {
+        return pickFrom("Coach", team.getCoachingStaff(), [](const Coach& c) {
+            return "[" + c.getId() + "] " + c.getName() + " (" + c.getCoachingRole() + ", "
+                 + c.getQualification() + ", " + std::to_string(c.getYearsExperience()) + " yrs)";
+        });
+    }
+
     std::string pickGender() { return pick("Gender", {"Male", "Female"}) == 0 ? "M" : "F"; }
 
     std::string pickPosition(const std::string& current = "") {
         return pickText("Position", {"Forward", "Midfielder", "Defender", "Goalkeeper"}, current);
+    }
+
+    std::string pickQualification(const std::string& current = "") {
+        return pickOrType("Qualification", {"CONCACAF Pro", "CONCACAF A", "CONCACAF B", "FIFA Elite License",
+                                            "UEFA A License"}, current);
+    }
+
+    std::string pickCoachRole(const std::string& current = "") {
+        return pickOrType("Role", {"Head Coach", "Assistant Coach", "Goalkeeping Coach", "Fitness Coach"}, current);
     }
 
     std::string pickCondition() {
@@ -532,9 +548,11 @@ public:
             std::cout << "  5. Remove Player from Team\n";
             std::cout << "  6. Search Team Details\n";
             std::cout << "  7. Update Player Details\n";
-            std::cout << "  8. " << (currentUser->role == UserRole::ADMIN_ALL ? "Return to Master Menu" : "Log Out") << "\n";
+            std::cout << "  8. Update Coach Details\n";
+            std::cout << "  9. Remove Coach from Team\n";
+            std::cout << "  10. " << (currentUser->role == UserRole::ADMIN_ALL ? "Return to Master Menu" : "Log Out") << "\n";
             std::cout << "------------------------------------------------------\n";
-            std::cout << "Enter choice (1-8): ";
+            std::cout << "Enter choice (1-10): ";
 
             int ch;
             if (!(std::cin >> ch)) { clearInput(); continue; }
@@ -606,8 +624,8 @@ public:
                     cName = askText("Enter Coach Name");
                     age = askInt("Enter Age (Rule: Must be >= 21)", 21, 120);
                     gender = pickGender();
-                    qual = pickOrType("Qualification", {"CONCACAF Pro", "CONCACAF A", "CONCACAF B", "FIFA Elite License", "UEFA A License"});
-                    role = pickOrType("Role", {"Head Coach", "Assistant Coach", "Goalkeeping Coach", "Fitness Coach"});
+                    qual = pickQualification();
+                    role = pickCoachRole();
                     exp = askInt("Enter Years Experience", 0, 80);
 
                     Coach c(cId, cName, age, gender, qual, role, exp);
@@ -649,6 +667,34 @@ public:
                     std::cout << "\n[SUCCESS] Updated player " << name << " (#" << jersey << ").\n";
                     pausePrompt();
                 } else if (ch == 8) {
+                    clearScreen();
+                    std::cout << "=== UPDATE COACH DETAILS ===\nType 'cancel' at any time to go back.\n\n";
+                    FootballTeam* t = pickTeam();
+                    const Coach& c = pickCoach(*t);
+                    const std::string cId = c.getId();
+
+                    std::cout << "\nPress Enter to keep the current value.\n";
+                    const std::string name = askText("Name", c.getName());
+                    const int age = askInt("Age (>= 21)", 21, 120, std::to_string(c.getAge()));
+                    const std::string qual = pickQualification(c.getQualification());
+                    const std::string role = pickCoachRole(c.getCoachingRole());
+                    const int exp = askInt("Years Experience", 0, 80, std::to_string(c.getYearsExperience()));
+
+                    t->updateCoach(cId, name, age, qual, role, exp);
+                    DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
+                    std::cout << "\n[SUCCESS] Updated coach " << name << ".\n";
+                    pausePrompt();
+                } else if (ch == 9) {
+                    clearScreen();
+                    std::cout << "=== REMOVE COACH FROM TEAM ===\nType 'cancel' at any time to go back.\n\n";
+                    FootballTeam* t = pickTeam();
+                    const std::string cId = pickCoach(*t).getId();
+
+                    t->removeCoach(cId);
+                    DataPersistence::saveCoaches(league, "kpfl_coaches.txt");
+                    std::cout << "\n[SUCCESS] Removed coach " << cId << " from " << t->getName() << ".\n";
+                    pausePrompt();
+                } else if (ch == 10) {
                     if (currentUser->role != UserRole::ADMIN_ALL) {
                         currentUser = nullptr;
                         clearScreen();

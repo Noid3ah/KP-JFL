@@ -274,7 +274,23 @@ void runAutomatedTestSuite(FootballLeague& league,
         && !isValidTime("24:00") && !isValidTime("12:60") && !isValidTime("9:00") && !isValidTime("");
     std::cout << (datesOk ? "[PASS]" : "[FAIL]") << " Date and time checks\n";
 
-    std::cout << "\n[ALL 25 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 26-27. Coach updates obey the age rule and keep ID, gender and team
+    FootballTeam coachTeam("T96", "Coach Test FC", "Kingston");
+    coachTeam.addCoach(Coach("CO96", "Coach One", 40, "F", "Pro", "Head Coach", 5));
+    expectException<InvalidAgeException>("Coach updated to under 21", [&] {
+        coachTeam.updateCoach("CO96", "Changed", 20, "Pro", "Head Coach", 5);
+    });
+    const Coach& updCoach = coachTeam.getCoachingStaff()[0];
+    bool coachOk = updCoach.getName() == "Coach One"
+        && coachTeam.updateCoach("CO96", "Renamed", 41, "UEFA A License", "Assistant Coach", 6)
+        && updCoach.getName() == "Renamed" && updCoach.getAge() == 41
+        && updCoach.getQualification() == "UEFA A License" && updCoach.getCoachingRole() == "Assistant Coach"
+        && updCoach.getYearsExperience() == 6 && updCoach.getId() == "CO96"
+        && updCoach.getGender() == "F" && updCoach.getTeamId() == "T96"
+        && !coachTeam.updateCoach("NOPE", "X", 40, "Pro", "Head Coach", 5);
+    std::cout << (coachOk ? "[PASS]" : "[FAIL]") << " Valid coach update applied\n";
+
+    std::cout << "\n[ALL 27 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {
