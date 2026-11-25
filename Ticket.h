@@ -33,13 +33,8 @@ inline double getDefaultCategoryPrice(TicketCategory cat) {
     }
 }
 
-// Person 3 - Ticket class
-/**
- * Represents one stadium seat reservation for a fixture.
- *
- * A ticket starts unsold. sellTo() marks it sold and increments the
- * spectator's purchase counter. A sold ticket cannot be sold again.
- */
+// One seat reservation for a match. Starts as available until sellTo() is called.
+// Trying to sell an already-sold ticket will throw.
 class Ticket {
 private:
     std::string ticketId;

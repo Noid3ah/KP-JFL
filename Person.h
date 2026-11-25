@@ -4,25 +4,15 @@
 #include <stdexcept>
 #include "exceptions.h"
 
-/**
- * =========================================================================
- * CLASS: Person (Person 2 - Abstract Superclass)
- * =========================================================================
- * PURPOSE:
- *  Base class for all human entities in the Jamaican Football League:
- *  Player, Coach, MatchOfficial, LeagueCommissioner, and Spectator.
- *
- * OOP CONCEPTS DEMONSTRATED:
- *  - Abstraction: Cannot be directly instantiated because displayInfo() is pure virtual.
- *  - Encapsulation: Protected fields (id, name, age, gender) with validated accessors/mutators.
- * =========================================================================
- */
+// Base class for everyone in the system — players, coaches, officials, spectators, etc.
+// Can't be instantiated on its own since displayInfo() is pure virtual.
+// All subclasses share the same id/name/age/gender fields defined here.
 class Person {
 protected:
-    std::string id;     ///< Unique identity shared across person subclasses.
-    std::string name;   ///< Display name of the person.
-    int age;            ///< Age in years; subclasses may impose higher minimums.
-    std::string gender; ///< Gender label stored as supplied.
+    std::string id;
+    std::string name;
+    int age;
+    std::string gender;
 
 public:
     Person(const std::string& id, const std::string& name, int age, const std::string& gender)
@@ -37,13 +27,11 @@ public:
 
     virtual ~Person() = default;
 
-    // Getters
     const std::string& getId() const { return id; }
     const std::string& getName() const { return name; }
     int getAge() const { return age; }
     const std::string& getGender() const { return gender; }
 
-    // Setters
     void setName(const std::string& newName) {
         if (newName.empty()) throw std::invalid_argument("Name cannot be empty.");
         name = newName;
@@ -56,6 +44,6 @@ public:
 
     void setGender(const std::string& newGender) { gender = newGender; }
 
-    // Pure virtual method: Polymorphic requirement
+    // each subclass decides how to display itself
     virtual void displayInfo() const = 0;
 };

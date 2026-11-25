@@ -4,18 +4,8 @@
 #include <stdexcept>
 #include "Person.h"
 
-/**
- * =========================================================================
- * CLASS: Player (Person 2 - Subclass of Person)
- * =========================================================================
- * PURPOSE:
- *  Represents an active football player registered to a club squad.
- *
- * BUSINESS RULES ENFORCED:
- *  - Minimum age requirement: Must be at least 16 years old.
- *  - Jersey numbers must be in the valid range of 1 to 99.
- * =========================================================================
- */
+// A registered player on a club squad.
+// League rules: must be at least 16 years old, jersey number between 1 and 99.
 class Player : public Person {
 private:
     std::string position;      // Forward, Midfielder, Defender, Goalkeeper
@@ -33,7 +23,7 @@ public:
           goals(0),
           playingStatus("Active"),
           teamId(teamId) {
-        // Enforce mandatory league rule: Minimum age 16
+        // league rule: players must be 16 or older
         if (age < 16) {
             throw InvalidAgeException("Player " + name + " must be at least 16 years old (Entered: " + std::to_string(age) + ").");
         }
@@ -42,14 +32,14 @@ public:
         }
     }
 
-    // Accessors
+    // getters
     const std::string& getPosition() const { return position; }
     int getJerseyNumber() const { return jerseyNumber; }
     int getGoals() const { return goals; }
     const std::string& getPlayingStatus() const { return playingStatus; }
     const std::string& getTeamId() const { return teamId; }
 
-    // Mutators
+    // setters
     void setPosition(const std::string& pos) { position = pos; }
     void setPlayingStatus(const std::string& status) { playingStatus = status; }
     void setTeamId(const std::string& tid) { teamId = tid; }
@@ -59,7 +49,6 @@ public:
         goals += g;
     }
 
-    // Polymorphic display implementation
     void displayInfo() const override {
         std::cout << "  [Player] ID: " << id << " | " << name
                   << " | Age: " << age << " | Pos: " << position

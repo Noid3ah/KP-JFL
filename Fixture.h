@@ -11,15 +11,11 @@
 #include "Stadium.h"
 #include "Ticket.h"
 
-/// Lifecycle state of a scheduled match.
+// tracks whether a match is still upcoming or has been played
 enum class FixtureStatus { SCHEDULED, COMPLETED };
 
-/**
- * Represents one match between a home team and an away team.
- *
- * The fixture stores pointers to shared league objects rather than copies.
- * It owns the MatchResult and Ticket objects created for this match.
- */
+// One scheduled match — holds pointers to the two teams and the venue.
+// Owns the result and ticket objects for this game.
 class Fixture {
 private:
     std::string fixtureId;
@@ -53,7 +49,7 @@ public:
             throw std::invalid_argument("Fixture needs a date and time");
         }
 
-        // Notify stadium that teams are using it
+        // let the stadium know these teams are playing there
         stadium->assignTeam(home->getRegNumber());
         stadium->assignTeam(away->getRegNumber());
     }
@@ -104,7 +100,7 @@ public:
         officials.push_back(official);
     }
 
-    // Ticketing integration for Person 3
+    // generates tickets per seating category — total can't exceed stadium cap
     void generateTickets(int bleacherCount, int grandstandCount, int vipCount) {
         int total = bleacherCount + grandstandCount + vipCount;
         if (total > stadium->getSeatingCapacity()) {

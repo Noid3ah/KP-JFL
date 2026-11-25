@@ -6,9 +6,7 @@
 #include "Person.h"
 #include "exceptions.h"
 
-/**
- * Represents a referee or other match official and tracks date/time assignments.
- */
+// A match official (referee, AR, etc.) — keeps track of which slots they're already booked for.
 class MatchOfficial : public Person {
 private:
     std::string role; // Referee, Assistant Referee, Fourth Official, VAR
@@ -37,7 +35,7 @@ public:
 
     const std::vector<std::string>& getBookedSlots() const { return bookedSlots; }
 
-    /// Returns false when globally unavailable or already booked for the requested date and time.
+    // false if they're marked unavailable or already have that slot booked
     bool isFree(const std::string& date, const std::string& time) const {
         if (!available) return false;
         const std::string requestedSlot = slotKey(date, time);

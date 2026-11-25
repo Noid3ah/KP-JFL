@@ -3,9 +3,7 @@
 #include <string>
 #include "Person.h"
 
-/**
- * Represents a match attendee and stores the spectator's contact and fan details.
- */
+// A fan attending a match — stores contact info and their preferred team.
 class Spectator : public Person {
 private:
     std::string email;

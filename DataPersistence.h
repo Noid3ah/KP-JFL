@@ -8,12 +8,8 @@
 #include "FootballLeague.h"
 #include "StadiumShop.h"
 
-/**
- * Saves and reloads selected application data using pipe-delimited text files.
- *
- * This utility owns no objects; callers provide league and shop objects and
- * retain responsibility for any external storage containers used during loading.
- */
+// static utility for reading and writing the flat text files.
+// doesn't own any objects — just reads from / writes to whatever you pass in.
 class DataPersistence {
 public:
     static void saveTeams(const FootballLeague& league, const std::string& filename) {

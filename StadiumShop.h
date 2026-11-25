@@ -9,7 +9,7 @@
 #include "FoodItem.h"
 #include "exceptions.h"
 
-/// Details for one product line in a completed transaction.
+// one line item in a sale
 struct SaleItem {
     std::string productId;
     std::string productName;
@@ -18,7 +18,7 @@ struct SaleItem {
     double itemTotal;
 };
 
-/// Final summary of a completed stadium-shop sale.
+// full receipt for a completed sale
 struct Receipt {
     std::string receiptId;
     std::string customerName;
@@ -30,13 +30,8 @@ struct Receipt {
     double change;
 };
 
-/**
- * Owns the shop's product inventory and completed transaction history.
- *
- * Products are stored as polymorphic unique_ptr objects so FoodItem and
- * Merchandise instances remain usable through the common Product interface.
- * Sales calculate Jamaican 15% GCT and roll stock back if payment is insufficient.
- */
+// Manages the shop inventory and keeps a record of all completed sales.
+// GCT is 15% — if payment falls short the stock gets put back and an exception is thrown.
 class StadiumShop {
 private:
     std::string shopId;
@@ -74,8 +69,7 @@ public:
 
     const std::vector<std::unique_ptr<Product>>& getInventory() const { return inventory; }
 
-    // Process customer transactions:
-    // Calculates subtotal, 15% GCT, total payment, change and prevents insufficient payment
+    // handles a full sale — checks stock, deducts it, applies GCT, and rolls back if payment is short
     Receipt processSale(const std::string& customerName,
                         const std::vector<std::pair<std::string, int>>& cart,
                         double paymentTendered) {
@@ -83,7 +77,7 @@ public:
             throw ShopFinanceException("Cart cannot be empty");
         }
 
-        // Validate stock first
+        // check everything is in stock before touching any quantities
         for (const auto& item : cart) {
             Product* p = findProduct(item.first);
             if (!p) {
@@ -96,7 +90,7 @@ public:
             }
         }
 
-        // Deduct stock and compute subtotal
+        // stock is confirmed — deduct it and tally up the subtotal
         double subtotal = 0.0;
         std::vector<SaleItem> soldItems;
 
@@ -112,7 +106,7 @@ public:
         double total = subtotal + gct;
 
         if (paymentTendered < total) {
-            // Rollback stock
+            // put stock back since the sale didn't go through
             for (const auto& sold : soldItems) {
                 Product* p = findProduct(sold.productId);
                 if (p) p->addStock(sold.quantity);
