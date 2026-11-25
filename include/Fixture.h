@@ -177,6 +177,10 @@ public:
     void restoreTickets(const vector<Ticket>& saved) { tickets = saved; }
 
     Ticket* sellTicket(TicketCategory cat, Spectator& spectator) {
+        if (status == FixtureStatus::COMPLETED) {
+            throw StadiumTicketingException("Cannot sell tickets for completed fixture " + fixtureId + ".");
+        }
+
         int soldCount = 0;
         for (const auto& t : tickets) {
             if (t.getIsSold()) ++soldCount;

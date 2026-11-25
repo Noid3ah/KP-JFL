@@ -291,7 +291,29 @@ void runAutomatedTestSuite(FootballLeague& league,
         && !coachTeam.updateCoach("NOPE", "X", 40, "Pro", "Head Coach", 5);
     cout << (coachOk ? "[PASS]" : "[FAIL]") << " Valid coach update applied\n";
 
-    cout << "\n[ALL 27 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 28. Tickets can't be sold once a match is over
+    Fixture playedFix("FX98", "2026-12-02", "15:00", &fxHome, &fxAway, &fxGround);
+    playedFix.generateTickets(1, 0, 0);
+    playedFix.setResult(MatchResult(1, 0));
+    playedFix.complete();
+    expectException<StadiumTicketingException>("Selling a ticket for a completed match", [&] {
+        playedFix.sellTicket(TicketCategory::BLEACHERS, fan);
+    });
+
+    // 29. Typed input formats
+    bool formatsOk = isValidPersonName("Shelly-Ann O'Neil Jr.") && isValidPersonName("Jos\xC3\xA9")
+        && !isValidPersonName("12345!!") && !isValidPersonName("-") && !isValidPersonName("")
+        && isValidEmail("bolt@fast.jm") && !isValidEmail("notanemail") && !isValidEmail("a@b")
+        && !isValidEmail("@b.com") && !isValidEmail("a@") && !isValidEmail("a@b.") && !isValidEmail("a@@b.com")
+        && !isValidEmail("a b@c.com") && !isValidEmail("a@b..com")
+        && isValidPhone("876-555-0100") && isValidPhone("+1 (876) 555-0100")
+        && !isValidPhone("abcphone") && !isValidPhone("123") && !isValidPhone("876+5550100")
+        && isValidMoney("8500") && isValidMoney("8500.5") && isValidMoney("8500.50")
+        && !isValidMoney("") && !isValidMoney("1e5") && !isValidMoney("-1") && !isValidMoney("1.999")
+        && !isValidMoney("1.") && !isValidMoney(".5") && !isValidMoney("1.2.3");
+    cout << (formatsOk ? "[PASS]" : "[FAIL]") << " Name, email, phone and money formats\n";
+
+    cout << "\n[ALL 29 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {
