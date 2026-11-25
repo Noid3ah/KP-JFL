@@ -14,20 +14,8 @@
 #include "MatchOfficial.h"
 #include "Spectator.h"
 
-/**
- * =========================================================================
- * CLASS: FootballLeague (Person 1 - Project Lead & League Management)
- * =========================================================================
- * PURPOSE:
- *  Coordinates overall league operations: team participation, stadium tracking,
- *  match official management, fixture scheduling, results entry, and standings.
- *
- * OOP CONCEPTS DEMONSTRATED:
- *  - Encapsulation: Internal vectors of teams, fixtures, etc. are private.
- *  - Composition: Owns the lifecycle of Fixture objects via std::unique_ptr.
- *  - Aggregation: Holds pointers to Teams, Stadiums, Officials, and Commissioner.
- * =========================================================================
- */
+// The main league class — ties together teams, stadiums, officials, fixtures, and standings.
+// Owns fixture objects but only holds references to everything else.
 class FootballLeague {
 private:
     std::string leagueName;
@@ -39,7 +27,7 @@ private:
     std::vector<std::unique_ptr<Fixture>> fixtures;
     int nextFixtureNo = 1;
 
-    // Helper: Find a fixture by ID
+    // looks up a fixture — throws if the ID doesn't match anything
     Fixture& findFixture(const std::string& id) {
         for (auto& f : fixtures) {
             if (f->getFixtureId() == id) return *f;
@@ -47,7 +35,7 @@ private:
         throw LeagueException("Fixture not found with ID: " + id);
     }
 
-    // Helper: Find an official by ID
+    // looks up an official — throws if not found
     MatchOfficial& findOfficial(const std::string& id) {
         for (auto* o : officials) {
             if (o->getId() == id) return *o;
@@ -55,7 +43,7 @@ private:
         throw LeagueException("Match official not found with ID: " + id);
     }
 
-    // Helper: Check team registration and suspension status
+    // blocks unregistered or suspended teams from being scheduled
     static void checkEligibility(const FootballTeam* team) {
         if (!team->isRegistered()) {
             throw TeamNotEligibleException("Team '" + team->getName() + "' is not registered with the league.");
@@ -70,7 +58,7 @@ public:
         if (name.empty()) throw std::invalid_argument("League name cannot be empty.");
     }
 
-    // Getters
+    // getters
     const std::string& getLeagueName() const { return leagueName; }
     LeagueCommissioner* getCommissioner() const { return commissioner; }
     const std::vector<FootballTeam*>& getTeams() const { return teams; }
@@ -129,7 +117,7 @@ public:
         return nullptr;
     }
 
-    // Schedule a fixture enforcing eligibility, double booking of teams and stadiums
+    // schedules a match — checks both team eligibility and slot conflicts first
     Fixture& scheduleFixture(FootballTeam* home, FootballTeam* away, Stadium* stadium,
                              const std::string& date, const std::string& time) {
         if (!home || !away || !stadium) throw std::invalid_argument("Teams and stadium must be valid.");
@@ -141,7 +129,7 @@ public:
         oss << "FX" << std::setw(3) << std::setfill('0') << nextFixtureNo;
         auto newFixture = std::make_unique<Fixture>(oss.str(), date, time, home, away, stadium);
 
-        // Check scheduling conflicts against existing fixtures
+        // make sure no team or stadium is double-booked for this slot
         for (const auto& fx : fixtures) {
             if (newFixture->clashesWith(*fx)) {
                 throw SchedulingConflictException("Team conflict: One of the teams is already booked on "
@@ -158,14 +146,14 @@ public:
         return *fixtures.back();
     }
 
-    // Assign official to match checking date/time conflict
+    // assigns a referee to a fixture — the fixture itself checks for conflicts
     void assignOfficial(const std::string& fixtureId, const std::string& officialId) {
         Fixture& fixture = findFixture(fixtureId);
         MatchOfficial& official = findOfficial(officialId);
         fixture.addOfficial(&official);
     }
 
-    // Record score: Win = 3 pts, Draw = 1 pt, Loss = 0 pts
+    // saves the final score and updates both teams' league stats
     void recordResult(const std::string& fixtureId, int homeScore, int awayScore) {
         Fixture& fixture = findFixture(fixtureId);
         if (fixture.getStatus() == FixtureStatus::COMPLETED) {
@@ -180,7 +168,7 @@ public:
         fixture.getAway().recordMatch(awayScore, homeScore, res.getAwayPoints());
     }
 
-    // Sort standings: Points desc -> Goal Difference desc -> Goals For desc -> Name asc
+    // sorts by points, then goal difference, then goals scored, then name
     std::vector<FootballTeam*> getStandings() const {
         std::vector<FootballTeam*> table = teams;
         std::sort(table.begin(), table.end(), [](const FootballTeam* a, const FootballTeam* b) {
@@ -226,11 +214,7 @@ public:
         std::cout << "=====================================================\n";
     }
 
-    // =========================================================================
-    // SECTION 4.11 OF SPECIFICATION: THREE USEFUL MANAGEMENT REPORTS
-    // =========================================================================
-
-    // REPORT 1: Top Goal Scorers Report (Golden Boot Race)
+    // Report 1: top scorers across all teams this season
     void generateTopScorersReport() const {
         std::cout << "\n=======================================================\n";
         std::cout << "       MANAGEMENT REPORT 1: LEAGUE TOP GOAL SCORERS    \n";
@@ -276,7 +260,7 @@ public:
         std::cout << "=======================================================\n";
     }
 
-    // REPORT 2: Match Attendance & Stadium Capacity Utilization Report
+    // Report 2: how full each stadium was for each fixture
     void generateAttendanceReport() const {
         std::cout << "\n=======================================================\n";
         std::cout << "    MANAGEMENT REPORT 2: STADIUM ATTENDANCE & CAPACITY \n";
@@ -303,7 +287,7 @@ public:
         std::cout << "=======================================================\n";
     }
 
-    // REPORT 3: League Fair Play & Team Registration Summary
+    // Report 3: quick overview of each team's registration status and squad size
     void generateTeamStatusReport() const {
         std::cout << "\n=======================================================\n";
         std::cout << "    MANAGEMENT REPORT 3: TEAM REGISTRATION & SQUAD STATUS\n";

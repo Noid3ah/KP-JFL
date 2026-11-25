@@ -4,17 +4,8 @@
 #include <stdexcept>
 #include "Person.h"
 
-/**
- * =========================================================================
- * CLASS: Coach (Person 2 - Subclass of Person)
- * =========================================================================
- * PURPOSE:
- *  Represents a certified football coach or manager for a club.
- *
- * BUSINESS RULES ENFORCED:
- *  - Minimum age requirement: Must be at least 21 years old.
- * =========================================================================
- */
+// A coaching staff member attached to a club.
+// Must be at least 21 — that's a league rule enforced in the constructor.
 class Coach : public Person {
 private:
     std::string qualification;  // e.g., "CONCACAF Pro License", "UEFA A License"
@@ -31,7 +22,7 @@ public:
           coachingRole(role),
           yearsExperience(yearsExperience),
           teamId(teamId) {
-        // Enforce coach age rule: Minimum 21 years old
+        // coaches have to be at least 21
         if (age < 21) {
             throw InvalidAgeException("Coach " + name + " must be at least 21 years old (Entered: " + std::to_string(age) + ").");
         }
@@ -44,7 +35,6 @@ public:
 
     void setTeamId(const std::string& tid) { teamId = tid; }
 
-    // Polymorphic display implementation
     void displayInfo() const override {
         std::cout << "  [Coach]  ID: " << id << " | " << name
                   << " | Role: " << coachingRole << " | Qual: " << qualification

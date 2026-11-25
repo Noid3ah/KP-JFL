@@ -2,9 +2,7 @@
 #include <string>
 #include "exceptions.h"
 
-/**
- * Stores a final match score and calculates the standard 3/1/0 league points.
- */
+// holds the final score for a match and works out points — win 3, draw 1, loss 0
 class MatchResult {
 private:
     int homeScore;
@@ -22,7 +20,7 @@ public:
     int getHomeScore() const { return homeScore; }
     int getAwayScore() const { return awayScore; }
 
-    // League points system: Win = 3, Draw = 1, Loss = 0
+    // standard league points from the home team's perspective
     int getHomePoints() const {
         if (homeScore > awayScore) return 3;
         if (homeScore == awayScore) return 1;

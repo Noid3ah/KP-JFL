@@ -5,10 +5,7 @@
 #include <algorithm>
 #include "exceptions.h"
 
-// Person 3 - Stadium management
-/**
- * Stores venue details and tracks which team registration numbers use the stadium.
- */
+// Holds venue info and keeps track of which teams are using this stadium.
 class Stadium {
 private:
     std::string stadiumId;

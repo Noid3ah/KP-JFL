@@ -2,13 +2,13 @@
 #include <stdexcept>
 #include <string>
 
-/// Base exception for all domain and validation errors in the application.
+// root exception — everything in the system extends from this
 class JFLException : public std::runtime_error {
 public:
     explicit JFLException(const std::string& msg) : std::runtime_error(msg) {}
 };
 
-/// League operations and scheduling failures.
+// anything that goes wrong with fixtures, scheduling, or results
 class LeagueException : public JFLException {
 public:
     explicit LeagueException(const std::string& msg) : JFLException(msg) {}
@@ -39,7 +39,7 @@ public:
     explicit ResultRequiredException(const std::string& msg) : LeagueException(msg) {}
 };
 
-/// Team, player, coach, and personnel management failures.
+// covers age violations, duplicate IDs, jersey conflicts, etc.
 class PersonnelException : public JFLException {
 public:
     explicit PersonnelException(const std::string& msg) : JFLException(msg) {}
@@ -55,7 +55,7 @@ public:
     explicit DuplicatePersonException(const std::string& msg) : PersonnelException(msg) {}
 };
 
-/// Stadium and ticketing failures.
+// thrown when ticket or capacity rules are broken
 class StadiumTicketingException : public JFLException {
 public:
     explicit StadiumTicketingException(const std::string& msg) : JFLException(msg) {}
@@ -66,7 +66,7 @@ public:
     explicit CapacityExceededException(const std::string& msg) : StadiumTicketingException(msg) {}
 };
 
-/// Stadium-shop, payment, stock, and persistence failures.
+// shop-related issues — bad payment, out of stock, file errors
 class ShopFinanceException : public JFLException {
 public:
     explicit ShopFinanceException(const std::string& msg) : JFLException(msg) {}

@@ -39,11 +39,7 @@ private:
     std::vector<Coach> coachingStaff;
 
 public:
-    /**
-     * Creates a team. The registration number and name are required.
-     *
-     * @throws std::invalid_argument if regNumber or name is empty.
-     */
+    // reg number and name are both required — throws if either is blank
     FootballTeam(const std::string& regNumber, const std::string& name, const std::string& city = "Kingston")
         : regNumber(regNumber), name(name), homeCity(city) {
         if (regNumber.empty() || name.empty()) {
@@ -51,61 +47,25 @@ public:
         }
     }
 
-    /// Returns the immutable league registration number.
     const std::string& getRegNumber() const { return regNumber; }
-
-    /// Returns the club name.
     const std::string& getName() const { return name; }
-
-    /// Returns the city's name used as the team's home location.
     const std::string& getHomeCity() const { return homeCity; }
-
-    /// Reports whether the team has completed league registration.
     bool isRegistered() const { return registered; }
-
-    /// Reports whether the team is currently suspended from competition.
     bool isSuspended() const { return suspended; }
-
-    /// Changes the team's registration state.
     void setRegistered(bool r) { registered = r; }
-
-    /// Changes the team's suspension state.
     void setSuspended(bool s) { suspended = s; }
-
-    /// Updates the team's home city.
     void setHomeCity(const std::string& city) { homeCity = city; }
-
-    /// Returns the number of matches recorded for this team.
     int getPlayed() const { return played; }
-
-    /// Returns the number of matches won.
     int getWins() const { return wins; }
-
-    /// Returns the number of drawn matches.
     int getDraws() const { return draws; }
-
-    /// Returns the number of matches lost.
     int getLosses() const { return losses; }
-
-    /// Returns the number of goals scored in all recorded matches.
     int getGoalsFor() const { return goalsFor; }
-
-    /// Returns the number of goals conceded in all recorded matches.
     int getGoalsAgainst() const { return goalsAgainst; }
-
-    /// Returns goals scored minus goals conceded.
     int getGoalDifference() const { return goalsFor - goalsAgainst; }
-
-    /// Returns the cumulative league points.
     int getPoints() const { return points; }
 
-    /**
-     * Updates all cumulative match statistics for one completed match.
-     *
-     * The win, draw, and loss counters are selected from gf and ga. Points
-     * are supplied separately because league or match rules decide their
-     * value outside this class.
-     */
+    // called after a result is recorded — updates the team's stats for the table
+    // points come from outside since the league decides how many to award
     void recordMatch(int gf, int ga, int pts) {
         ++played;
         goalsFor += gf;
@@ -116,16 +76,8 @@ public:
         else ++losses;
     }
 
-    /**
-     * Adds a copy of a player to the squad.
-     *
-     * Player IDs must be unique within the squad, and jersey numbers must
-     * not already be assigned. The copy is associated with this team's
-     * registration number before it is stored.
-     *
-     * @throws DuplicatePersonException if the player ID already exists.
-     * @throws PersonnelException if the jersey number is already in use.
-     */
+    // adds a player copy to the squad
+    // throws if the player ID or jersey number is already taken
     void addPlayer(const Player& player) {
         for (const auto& p : squad) {
             if (p.getId() == player.getId()) {
@@ -140,11 +92,7 @@ public:
         squad.push_back(copy);
     }
 
-    /**
-     * Removes a player by ID.
-     *
-     * @return true if a matching player was removed; false if it was absent.
-     */
+    // removes a player by ID, returns false if no match found
     bool removePlayer(const std::string& playerId) {
         auto it = std::find_if(squad.begin(), squad.end(), [&](const Player& p) {
             return p.getId() == playerId;
@@ -156,13 +104,8 @@ public:
         return false;
     }
 
-    /**
-     * Finds a player by ID.
-     *
-     * @return A pointer to the stored player, or nullptr if no match exists.
-     *         The returned pointer refers to a squad element and must not be
-     *         retained across operations that may remove or add personnel.
-     */
+    // looks up a player by ID — returns nullptr if not found
+    // don't hold onto this pointer after modifying the squad
     Player* findPlayer(const std::string& playerId) {
         for (auto& p : squad) {
             if (p.getId() == playerId) return &p;
@@ -170,14 +113,7 @@ public:
         return nullptr;
     }
 
-    /**
-     * Adds a copy of a coach to the coaching staff.
-     *
-     * Coach IDs must be unique. The copy is associated with this team's
-     * registration number before it is stored.
-     *
-     * @throws DuplicatePersonException if the coach ID already exists.
-     */
+    // adds a coach to the staff — throws if that coach ID is already there
     void addCoach(const Coach& coach) {
         for (const auto& c : coachingStaff) {
             if (c.getId() == coach.getId()) {
@@ -189,11 +125,7 @@ public:
         coachingStaff.push_back(copy);
     }
 
-    /**
-     * Removes a coach by ID.
-     *
-     * @return true if a matching coach was removed; false if it was absent.
-     */
+    // removes a coach by ID, returns false if not found
     bool removeCoach(const std::string& coachId) {
         auto it = std::find_if(coachingStaff.begin(), coachingStaff.end(), [&](const Coach& c) {
             return c.getId() == coachId;
@@ -205,19 +137,12 @@ public:
         return false;
     }
 
-    /// Returns read-only access to the squad.
     const std::vector<Player>& getSquad() const { return squad; }
-
-    /// Returns mutable access to the squad.
     std::vector<Player>& getSquad() { return squad; }
-
-    /// Returns read-only access to the coaching staff.
     const std::vector<Coach>& getCoachingStaff() const { return coachingStaff; }
-
-    /// Returns mutable access to the coaching staff.
     std::vector<Coach>& getCoachingStaff() { return coachingStaff; }
 
-    /// Prints the team summary, standings statistics, coaches, and squad to std::cout.
+    // prints team info, record, coaches and full squad to the console
     void displayTeamInfo() const {
         std::cout << "\n========================================\n";
         std::cout << "Team: " << name << " (" << regNumber << ") - City: " << homeCity << "\n";

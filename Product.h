@@ -5,18 +5,8 @@
 #include <stdexcept>
 #include "exceptions.h"
 
-/**
- * =========================================================================
- * CLASS: Product (Person 4 - Abstract Superclass)
- * =========================================================================
- * PURPOSE:
- *  Base class for all inventory items sold at the stadium shop.
- *
- * OOP CONCEPTS DEMONSTRATED:
- *  - Abstraction: displayProduct() is pure virtual.
- *  - Encapsulation: Protected price and stock quantities with bounds checking.
- * =========================================================================
- */
+// Base class for anything sold in the shop.
+// Can't be used directly — subclasses (Merchandise, FoodItem) implement displayProduct().
 class Product {
 protected:
     std::string productId;  ///< Unique inventory identifier.
@@ -55,6 +45,6 @@ public:
         stockQuantity -= qty;
     }
 
-    // Pure virtual method: Polymorphic requirement
+    // each subclass formats its own display line
     virtual void displayProduct() const = 0;
 };

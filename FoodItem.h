@@ -4,14 +4,7 @@
 #include <iomanip>
 #include "Product.h"
 
-/**
- * =========================================================================
- * CLASS: FoodItem (Person 4 - Subclass of Product)
- * =========================================================================
- * PURPOSE:
- *  Represents match-day concessions (Tastee patties, Ting soda, Jerk chicken).
- * =========================================================================
- */
+// Match-day food and drinks sold at the shop — patties, Ting, jerk chicken, etc.
 class FoodItem : public Product {
 private:
     bool isBeverage;       ///< true for drinks; false for snacks or meals.
@@ -19,19 +12,14 @@ private:
     std::string expiryDate; ///< Display label for the item's expiry date.
 
 public:
-    /// Creates a concession item, using a perishable "Today" default if no expiry is supplied.
+    // expiry defaults to "Today" if nothing is passed in
     FoodItem(const std::string& id, const std::string& name, double price, int stock,
              bool isBeverage, bool isPerishable = true, const std::string& expiry = "Today")
         : Product(id, name, price, stock, "FoodItem"),
           isBeverage(isBeverage), isPerishable(isPerishable), expiryDate(expiry) {}
 
-    /// Returns whether this item is a beverage rather than a snack or meal.
     bool getIsBeverage() const { return isBeverage; }
-
-    /// Returns whether the item is marked as perishable.
     bool getIsPerishable() const { return isPerishable; }
-
-    /// Returns the stored expiry-date label.
     const std::string& getExpiryDate() const { return expiryDate; }
 
     void displayProduct() const override {

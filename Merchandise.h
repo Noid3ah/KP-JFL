@@ -4,14 +4,8 @@
 #include <iomanip>
 #include "Product.h"
 
-/**
- * =========================================================================
- * CLASS: Merchandise (Person 4 - Subclass of Product)
- * =========================================================================
- * PURPOSE:
- *  Represents wearable or collectible football club gear (jerseys, caps, scarves).
- * =========================================================================
- */
+// Club gear sold in the shop — jerseys, caps, scarves, etc.
+// Linked to a specific team or to the league in general.
 class Merchandise : public Product {
 private:
     std::string size;        ///< Clothing or item size, such as S, M, L, XL, or Standard.
@@ -19,7 +13,7 @@ private:
     std::string material;    ///< Material description such as Polyester or Cotton.
 
 public:
-    /// Creates club merchandise. Team and material values default to league-wide and Polyester.
+    // team defaults to "League" and material to Polyester if not specified
     Merchandise(const std::string& id, const std::string& name, double price, int stock,
                 const std::string& size, const std::string& teamRegNo = "League",
                 const std::string& material = "Polyester")

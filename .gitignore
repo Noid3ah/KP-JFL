@@ -29,3 +29,6 @@ kpfl_users.txt
 
 # Report file — contains internal project info, keep local only
 output/REPORT.txt
+
+# UML design doc — internal reference, not for the repo
+UML_DIAGRAM_AND_DESIGN.md

@@ -4,10 +4,7 @@
 #include "FootballTeam.h"
 #include "Fixture.h"
 
-/**
- * Represents the league authority responsible for team registration,
- * suspensions, and basic match-readiness inspections.
- */
+// The commissioner handles team approvals, suspensions, and pre-match checks.
 class LeagueCommissioner : public Person {
 public:
     LeagueCommissioner(const std::string& id, const std::string& name, int age, const std::string& gender)
