@@ -296,7 +296,6 @@ void runAutomatedTestSuite(FootballLeague& league,
 int main(int argc, char* argv[]) {
     std::cout << "====================================================================\n";
     std::cout << "  JAMAICAN FOOTBALL LEAGUE (JFL) - COMPLETE OOP INTEGRATED SYSTEM   \n";
-    std::cout << "       Coordinating Person 1, Person 2, Person 3 & Person 4         \n";
     std::cout << "====================================================================\n\n";
 
     try {

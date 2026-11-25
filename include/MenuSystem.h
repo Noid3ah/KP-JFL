@@ -389,10 +389,10 @@ public:
             std::cout << "======================================================\n";
             std::cout << "           SYSTEM ADMINISTRATOR MASTER DASHBOARD       \n";
             std::cout << "======================================================\n";
-            std::cout << "  1. Person 1: League Operations & Fixtures Sub-Menu\n";
-            std::cout << "  2. Person 2: Team & Personnel Management Sub-Menu\n";
-            std::cout << "  3. Person 3: Stadium Operations & Ticketing Sub-Menu\n";
-            std::cout << "  4. Person 4: Stadium Shop, Finance & Data Sub-Menu\n";
+            std::cout << "  1. League Operations & Fixtures\n";
+            std::cout << "  2. Team & Personnel Management\n";
+            std::cout << "  3. Stadium Operations & Ticketing\n";
+            std::cout << "  4. Stadium Shop, Finance & Data\n";
             std::cout << "  5. Display Complete League Overview & Standings\n";
             std::cout << "  6. View Management Reports (Top Scorers, Attendance, Status)\n";
             std::cout << "  7. Log Out\n";
@@ -475,7 +475,7 @@ public:
         while (inSubMenu) {
             clearScreen();
             std::cout << "------------------------------------------------------\n";
-            std::cout << "      [PERSON 1] LEAGUE OPERATIONS & FIXTURES MENU    \n";
+            std::cout << "          LEAGUE OPERATIONS & FIXTURES MENU           \n";
             std::cout << "------------------------------------------------------\n";
             std::cout << "  1. View League Standings Table\n";
             std::cout << "  2. View All Fixtures\n";
@@ -602,7 +602,7 @@ public:
         while (inSubMenu) {
             clearScreen();
             std::cout << "------------------------------------------------------\n";
-            std::cout << "      [PERSON 2] TEAM & PERSONNEL MANAGEMENT MENU     \n";
+            std::cout << "           TEAM & PERSONNEL MANAGEMENT MENU           \n";
             std::cout << "------------------------------------------------------\n";
             std::cout << "  1. View All Registered Teams & Rosters\n";
             std::cout << "  2. Search Team Details\n";
@@ -782,7 +782,7 @@ public:
         while (inSubMenu) {
             clearScreen();
             std::cout << "------------------------------------------------------\n";
-            std::cout << "    [PERSON 3] STADIUM OPERATIONS & TICKETING MENU    \n";
+            std::cout << "         STADIUM OPERATIONS & TICKETING MENU          \n";
             std::cout << "------------------------------------------------------\n";
             std::cout << "  1. View All Stadiums\n";
             std::cout << "  2. Register New Stadium\n";
@@ -942,7 +942,7 @@ public:
         while (inSubMenu) {
             clearScreen();
             std::cout << "------------------------------------------------------\n";
-            std::cout << "    [PERSON 4] STADIUM SHOP, FINANCE & DATA MENU      \n";
+            std::cout << "          STADIUM SHOP, FINANCE & DATA MENU           \n";
             std::cout << "------------------------------------------------------\n";
             std::cout << "  1. View Shop Inventory\n";
             std::cout << "  2. Add New Merchandise Item\n";
