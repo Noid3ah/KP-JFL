@@ -45,6 +45,10 @@ public:
         if (regNumber.empty() || name.empty()) {
             throw std::invalid_argument("Team registration number and name cannot be empty");
         }
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((regNumber + name + city).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Team details cannot contain '|' or line breaks.");
+        }
     }
 
     const std::string& getRegNumber() const { return regNumber; }
@@ -74,6 +78,15 @@ public:
         if (gf > ga) ++wins;
         else if (gf == ga) ++draws;
         else ++losses;
+    }
+
+    // restores a saved league record
+    void setRecord(int p, int w, int d, int l, int gf, int ga, int pts) {
+        if (w < 0 || d < 0 || l < 0 || gf < 0 || ga < 0 || pts < 0 || p != w + d + l) {
+            throw std::invalid_argument("Invalid league record for team " + name + ".");
+        }
+        played = p; wins = w; draws = d; losses = l;
+        goalsFor = gf; goalsAgainst = ga; points = pts;
     }
 
     // adds a player copy to the squad

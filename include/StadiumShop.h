@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 #include <iomanip>
+#include <map>
+#include <algorithm>
 #include "Product.h"
 #include "Merchandise.h"
 #include "FoodItem.h"
@@ -76,18 +78,27 @@ public:
         if (cart.empty()) {
             throw ShopFinanceException("Cart cannot be empty");
         }
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((customerName).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Customer name cannot contain '|' or line breaks.");
+        }
 
         // check everything is in stock before touching any quantities
+        // quantities are totalled per product, so listing one twice can't get past the check
+        std::map<std::string, int> wanted;
         for (const auto& item : cart) {
+            if (item.second <= 0) throw ShopFinanceException("Quantity for " + item.first + " must be positive");
             Product* p = findProduct(item.first);
             if (!p) {
                 throw ShopFinanceException("Product " + item.first + " not found in shop");
             }
-            if (p->getStockQuantity() < item.second) {
+            // compared by subtraction so huge quantities cannot overflow
+            if (item.second > p->getStockQuantity() - wanted[item.first]) {
                 throw OutOfStockException("Insufficient stock for " + p->getName() + " (Available: "
                                           + std::to_string(p->getStockQuantity()) + ", requested: "
                                           + std::to_string(item.second) + ")");
             }
+            wanted[item.first] += item.second;
         }
 
         // stock is confirmed — deduct it and tally up the subtotal
@@ -131,6 +142,18 @@ public:
 
         transactionHistory.push_back(receipt);
         return receipt;
+    }
+
+    // puts back a saved receipt and continues numbering after it
+    void restoreReceipt(const Receipt& r) {
+        if (r.receiptId.size() < 5 || r.receiptId.compare(0, 4, "RCP-") != 0) {
+            throw std::invalid_argument("bad receipt ID '" + r.receiptId + "'");
+        }
+        for (const auto& existing : transactionHistory) {
+            if (existing.receiptId == r.receiptId) throw std::invalid_argument("duplicate receipt " + r.receiptId);
+        }
+        nextReceiptNo = std::max(nextReceiptNo, std::stoi(r.receiptId.substr(4)) + 1);
+        transactionHistory.push_back(r);
     }
 
     void displayInventory() const {

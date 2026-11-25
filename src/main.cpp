@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <filesystem>
 
 // Include all modules
 #include "../include/exceptions.h"
@@ -128,7 +129,106 @@ void runAutomatedTestSuite(FootballLeague& league,
         && !updTeam.updatePlayer("NOPE", "X", 20, "Forward", 1, "Active");
     std::cout << (updateOk ? "[PASS]" : "[FAIL]") << " Valid player update applied\n";
 
-    std::cout << "\n[ALL 14 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 15. Teams and players survive a save and reload
+    const auto tmp = std::filesystem::temp_directory_path();
+    const std::string teamFile = (tmp / "kpfl_test_teams.txt").string();
+    const std::string playerFile = (tmp / "kpfl_test_players.txt").string();
+    std::filesystem::remove(playerFile);
+    updTeam.setSuspended(true);
+    updTeam.recordMatch(3, 1, 3);
+    FootballLeague saved("Saved"), reloaded("Reloaded");
+    saved.addTeam(&updTeam);
+    DataPersistence::saveTeams(saved, teamFile);
+    DataPersistence::savePlayers(saved, playerFile);
+    std::vector<std::unique_ptr<FootballTeam>> storage;
+    DataPersistence::loadTeams(reloaded, storage, teamFile);
+    DataPersistence::loadPlayers(reloaded, playerFile);
+    FootballTeam* back = reloaded.findTeam("T99");
+    bool reloadOk = back && back->isSuspended() && back->getWins() == 1 && back->getPoints() == 3
+        && back->getGoalsFor() == 3 && back->getSquad().size() == 2
+        && back->findPlayer("PL901")->getGoals() == 3
+        && back->findPlayer("PL901")->getPlayingStatus() == "Injured";
+    std::filesystem::remove(teamFile);
+    std::filesystem::remove(playerFile);
+    std::cout << (reloadOk ? "[PASS]" : "[FAIL]") << " Teams and players survive reload\n";
+
+    // 16. Fixtures survive a reload without their results being counted twice
+    const std::string fixtureFile = (tmp / "kpfl_test_fixtures.txt").string();
+    const std::string fxTeamFile = (tmp / "kpfl_test_fx_teams.txt").string();
+    const std::string fxStadiumFile = (tmp / "kpfl_test_stadiums.txt").string();
+    FootballTeam fxHome("T97", "Fixture Home", "Kingston"), fxAway("T98", "Fixture Away", "Kingston");
+    fxHome.setRegistered(true);
+    fxAway.setRegistered(true);
+    Stadium fxGround("S97", "Fixture Ground", "Kingston", 100, "");
+    MatchOfficial fxRef("O97", "Test Ref", 30, "M", "Referee", "Grade A");
+    FootballLeague before("Before"), after("After");
+    before.addTeam(&fxHome);
+    before.addTeam(&fxAway);
+    before.addStadium(&fxGround);
+    before.addOfficial(&fxRef);
+    before.scheduleFixture(&fxHome, &fxAway, &fxGround, "2026-12-01", "15:00");
+    before.scheduleFixture(&fxHome, &fxAway, &fxGround, "2026-12-08", "15:00");
+    before.assignOfficial("FX001", "O97");
+    before.recordResult("FX001", 2, 1);
+    fxHome.setSuspended(true); // a later suspension must not block loading
+    DataPersistence::saveTeams(before, fxTeamFile);
+    DataPersistence::saveStadiums(before, fxStadiumFile);
+    DataPersistence::saveFixtures(before, fixtureFile);
+
+    MatchOfficial fxRefAgain("O97", "Test Ref", 30, "M", "Referee", "Grade A");
+    std::vector<std::unique_ptr<FootballTeam>> fxTeams;
+    std::vector<std::unique_ptr<Stadium>> fxStadiums;
+    after.addOfficial(&fxRefAgain);
+    DataPersistence::loadTeams(after, fxTeams, fxTeamFile);
+    DataPersistence::loadStadiums(after, fxStadiums, fxStadiumFile);
+    DataPersistence::loadFixtures(after, fixtureFile);
+    const auto& fxs = after.getFixtures();
+    bool fixturesOk = fxs.size() == 2
+        && fxs[0]->getStatus() == FixtureStatus::COMPLETED && fxs[0]->getResult()->getHomeScore() == 2
+        && fxs[0]->getOfficials().size() == 1 && !fxRefAgain.isFree("2026-12-01", "15:00")
+        && fxs[1]->getStatus() == FixtureStatus::SCHEDULED
+        && after.findTeam("T97")->getPlayed() == 1 && after.findTeam("T97")->getPoints() == 3;
+    for (const auto& f : {fixtureFile, fxTeamFile, fxStadiumFile}) std::filesystem::remove(f);
+    std::cout << (fixturesOk ? "[PASS]" : "[FAIL]") << " Fixtures survive reload without double counting\n";
+    expectException<LeagueException>("Recording a reloaded result again", [&] {
+        after.recordResult("FX001", 2, 1);
+    });
+
+    // 18. Shop stock, products and receipts survive a reload
+    const std::string stockFile = (tmp / "kpfl_test_stock.txt").string();
+    const std::string receiptFile = (tmp / "kpfl_test_receipts.txt").string();
+    StadiumShop shopA("SHOP-A", "S01"), shopB("SHOP-B", "S01");
+    shopA.addProduct(std::make_unique<Merchandise>("M01", "Jersey", 100.5, 10, "L", "T01", "Cotton"));
+    shopA.addProduct(std::make_unique<FoodItem>("F01", "Soda", 20.0, 8, true, false, "2027"));
+    shopB.addProduct(std::make_unique<Merchandise>("M01", "Jersey", 100.5, 10, "L", "T01", "Cotton"));
+    shopA.processSale("Fan", { {"M01", 2}, {"F01", 1} }, 1000.0);
+    DataPersistence::saveShopInventory(shopA, stockFile);
+    DataPersistence::saveTransactions(shopA, receiptFile);
+    DataPersistence::loadShopInventory(shopB, stockFile);
+    DataPersistence::loadTransactions(shopB, receiptFile);
+    const auto* soda = dynamic_cast<const FoodItem*>(shopB.findProduct("F01"));
+    bool shopOk = shopB.findProduct("M01")->getStockQuantity() == 8
+        && soda && soda->getStockQuantity() == 7 && soda->getIsBeverage()
+        && !soda->getIsPerishable() && soda->getExpiryDate() == "2027"
+        && shopB.getTransactionHistory().size() == 1
+        && shopB.getTransactionHistory()[0].items.size() == 2
+        && shopB.getTransactionHistory()[0].items[0].itemTotal == 201.0
+        && shopB.processSale("Fan", { {"F01", 1} }, 100.0).receiptId == "RCP-2";
+    std::filesystem::remove(stockFile);
+    std::filesystem::remove(receiptFile);
+    std::cout << (shopOk ? "[PASS]" : "[FAIL]") << " Shop stock and receipts survive reload\n";
+
+    // 19-21. A rejected cart must leave stock untouched
+    expectException<OutOfStockException>("Same product listed twice beyond stock", [&] {
+        shopA.processSale("Fan", { {"M01", 5}, {"M01", 5} }, 10000.0);
+    });
+    expectException<ShopFinanceException>("Negative quantity in cart", [&] {
+        shopA.processSale("Fan", { {"M01", 1}, {"F01", -1} }, 10000.0);
+    });
+    std::cout << (shopA.findProduct("M01")->getStockQuantity() == 8 ? "[PASS]" : "[FAIL]")
+              << " Rejected carts leave stock unchanged\n";
+
+    std::cout << "\n[ALL 21 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -139,6 +239,8 @@ int main(int argc, char* argv[]) {
 
     try {
         // Core League Setup
+        std::vector<std::unique_ptr<Stadium>> loadedStadiums;   // owns stadiums read from file
+        std::vector<std::unique_ptr<FootballTeam>> loadedTeams; // owns teams read from file
         FootballLeague league("Kingston Premier Football League (KPFL)");
         LeagueCommissioner commissioner("COM01", "Marcus Brown", 48, "M");
         league.setCommissioner(&commissioner);
@@ -223,16 +325,43 @@ int main(int argc, char* argv[]) {
         shop.addProduct(std::make_unique<FoodItem>("F02", "Ting Grapefruit Soda", 250.0, 80, true));
         shop.addProduct(std::make_unique<FoodItem>("F03", "Jerk Chicken Quarter", 1200.0, 40, false));
 
-        // Data Persistence export (Person 4)
-        DataPersistence::saveTeams(league, "kpfl_teams.txt");
-        DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
-        DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
-
         // Check if running in automated test mode (e.g. ./main.exe --test)
         bool testMode = (argc > 1 && std::string(argv[1]) == "--test");
         if (testMode) {
             runAutomatedTestSuite(league, shop, nationalStadium, harbour, waterhouse, cavalier, ref1);
             return 0;
+        }
+
+        // Saved teams load first, so saved players have a squad to join
+        if (std::filesystem::exists("kpfl_teams.txt")) {
+            DataPersistence::loadTeams(league, loadedTeams, "kpfl_teams.txt");
+        } else {
+            DataPersistence::saveTeams(league, "kpfl_teams.txt");
+        }
+
+        // Saved squads replace the sample ones; a damaged file stops startup rather than being overwritten
+        if (std::filesystem::exists("kpfl_players.txt")) {
+            DataPersistence::loadPlayers(league, "kpfl_players.txt");
+        }
+
+        if (std::filesystem::exists("kpfl_stadiums.txt")) {
+            DataPersistence::loadStadiums(league, loadedStadiums, "kpfl_stadiums.txt");
+        } else {
+            DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
+        }
+
+        // Fixtures load last because they refer to teams and stadiums
+        if (std::filesystem::exists("kpfl_fixtures.txt")) {
+            DataPersistence::loadFixtures(league, "kpfl_fixtures.txt");
+        }
+
+        if (std::filesystem::exists("kpfl_shop_inventory.txt")) {
+            DataPersistence::loadShopInventory(shop, "kpfl_shop_inventory.txt");
+        } else {
+            DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
+        }
+        if (std::filesystem::exists("kpfl_shop_receipts.txt")) {
+            DataPersistence::loadTransactions(shop, "kpfl_shop_receipts.txt");
         }
 
         // Launch the Secure Login and Menu System

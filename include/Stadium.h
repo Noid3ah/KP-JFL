@@ -25,6 +25,10 @@ public:
         if (capacity <= 0) {
             throw std::invalid_argument("Stadium capacity must be positive");
         }
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((id + name + location + condition).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Stadium details cannot contain '|' or line breaks.");
+        }
     }
 
     const std::string& getStadiumId() const { return stadiumId; }
@@ -39,7 +43,12 @@ public:
         if (cap <= 0) throw std::invalid_argument("Capacity must be positive");
         seatingCapacity = cap;
     }
-    void setFieldCondition(const std::string& cond) { fieldCondition = cond; }
+    void setFieldCondition(const std::string& cond) {
+        if (cond.find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Field condition cannot contain '|' or line breaks.");
+        }
+        fieldCondition = cond;
+    }
 
     void assignTeam(const std::string& teamId) {
         if (std::find(assignedTeamIds.begin(), assignedTeamIds.end(), teamId) == assignedTeamIds.end()) {

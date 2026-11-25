@@ -18,7 +18,12 @@ public:
                 const std::string& size, const std::string& teamRegNo = "League",
                 const std::string& material = "Polyester")
         : Product(id, name, price, stock, "Merchandise"),
-          size(size), teamRegNo(teamRegNo), material(material) {}
+          size(size), teamRegNo(teamRegNo), material(material) {
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((size + teamRegNo + material).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Product details cannot contain '|' or line breaks.");
+        }
+    }
 
     const std::string& getSize() const { return size; }
     const std::string& getTeamRegNo() const { return teamRegNo; }

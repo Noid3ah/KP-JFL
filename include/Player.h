@@ -23,6 +23,10 @@ public:
           goals(0),
           playingStatus("Active"),
           teamId(teamId) {
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((id + name + gender + position).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Player details cannot contain '|' or line breaks.");
+        }
         // league rule: players must be 16 or older
         if (age < 16) {
             throw InvalidAgeException("Player " + name + " must be at least 16 years old (Entered: " + std::to_string(age) + ").");

@@ -48,6 +48,10 @@ public:
         if (date.empty() || time.empty()) {
             throw std::invalid_argument("Fixture needs a date and time");
         }
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((date + time).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Fixture details cannot contain '|' or line breaks.");
+        }
 
         // let the stadium know these teams are playing there
         stadium->assignTeam(home->getRegNumber());

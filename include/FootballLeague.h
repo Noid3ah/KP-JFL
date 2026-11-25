@@ -146,6 +146,23 @@ public:
         return *fixtures.back();
     }
 
+    // puts back a saved fixture, keeping its ID
+    // team stats are saved separately, so a result is attached without counting it again
+    void restoreFixture(const std::string& id, const std::string& date, const std::string& time,
+                        FootballTeam* home, FootballTeam* away, Stadium* stadium,
+                        const std::vector<std::string>& officialIds, const MatchResult* result) {
+        if (id.size() < 3 || id.compare(0, 2, "FX") != 0) throw std::invalid_argument("bad fixture ID '" + id + "'");
+        const int number = std::stoi(id.substr(2));
+        auto fixture = std::make_unique<Fixture>(id, date, time, home, away, stadium);
+        for (const auto& officialId : officialIds) fixture->addOfficial(&findOfficial(officialId));
+        if (result) {
+            fixture->setResult(*result);
+            fixture->complete();
+        }
+        fixtures.push_back(std::move(fixture));
+        nextFixtureNo = std::max(nextFixtureNo, number + 1);
+    }
+
     // assigns a referee to a fixture — the fixture itself checks for conflicts
     void assignOfficial(const std::string& fixtureId, const std::string& officialId) {
         Fixture& fixture = findFixture(fixtureId);

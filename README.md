@@ -48,7 +48,7 @@ g++ -std=c++17 -Wall main.cpp -o main
 
 ## Automated Test Mode
 
-Runs all 14 built-in business rule tests automatically:
+Runs all 21 built-in business rule tests automatically:
 
 **Windows**
 ```powershell

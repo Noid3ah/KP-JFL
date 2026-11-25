@@ -47,18 +47,6 @@ private:
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 
-    // Automatically saves all system data to disk in real-time whenever changes occur
-    void autoSyncPersistence() {
-        try {
-            DataPersistence::saveTeams(league, "kpfl_teams.txt");
-            DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
-            DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
-            DataPersistence::saveTransactions(shop, "kpfl_shop_receipts.txt");
-        } catch (...) {
-            // Silently suppress background file write errors if any
-        }
-    }
-
 public:
     MenuSystem(FootballLeague& league, LeagueCommissioner& comm, StadiumShop& shop)
         : league(league), commissioner(comm), shop(shop) {}
@@ -296,6 +284,7 @@ public:
                         std::cout << "\n[ERROR] Invalid Team or Stadium ID entered!\n";
                     } else {
                         Fixture& fx = league.scheduleFixture(home, away, stad, date, time);
+                        DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
                         std::cout << "\n[SUCCESS] Scheduled " << fx.getFixtureId() << " (" << home->getName()
                                   << " vs " << away->getName() << ") successfully!\n";
                     }
@@ -320,6 +309,7 @@ public:
                     clearInput();
 
                     league.assignOfficial(fxId, offId);
+                    DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
                     std::cout << "\n[SUCCESS] Official assigned to fixture " << fxId << "!\n";
                     pausePrompt();
                 } else if (ch == 5) {
@@ -340,6 +330,9 @@ public:
                     clearInput();
 
                     league.recordResult(fxId, homeScore, awayScore);
+                    // fixtures first: if the second save fails, the result still can't be counted twice
+                    DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
+                    DataPersistence::saveTeams(league, "kpfl_teams.txt");
                     std::cout << "\n[SUCCESS] Match result recorded! Points table updated.\n";
                     pausePrompt();
                 } else if (ch == 6) {
@@ -382,6 +375,7 @@ public:
                     FootballTeam* t = league.findTeam(teamId);
                     if (t) {
                         commissioner.suspendTeam(*t, statusChoice == 1);
+                        DataPersistence::saveTeams(league, "kpfl_teams.txt");
                     } else {
                         std::cout << "\n[ERROR] Team not found!\n";
                     }
@@ -448,7 +442,7 @@ public:
                     auto newTeam = new FootballTeam(regNo, name, city);
                     league.addTeam(newTeam);
                     commissioner.approveTeam(*newTeam);
-                    autoSyncPersistence();
+                    DataPersistence::saveTeams(league, "kpfl_teams.txt");
                     std::cout << "\n[SUCCESS] Registered " << name << "! (Saved to kpfl_teams.txt)\n";
                     pausePrompt();
                 } else if (ch == 3) {
@@ -483,6 +477,7 @@ public:
 
                     Player p(pId, pName, age, gender, pos, jersey);
                     t->addPlayer(p);
+                    DataPersistence::savePlayers(league, "kpfl_players.txt");
                     std::cout << "\n[SUCCESS] Added player " << pName << " (#" << jersey << ") to " << t->getName() << "!\n";
                     pausePrompt();
                 } else if (ch == 4) {
@@ -546,6 +541,7 @@ public:
                     clearInput();
 
                     if (t->removePlayer(pId)) {
+                        DataPersistence::savePlayers(league, "kpfl_players.txt");
                         std::cout << "\n[SUCCESS] Removed player " << pId << " from squad.\n";
                     } else {
                         std::cout << "\n[ERROR] Player ID '" << pId << "' not found in squad.\n";
@@ -620,6 +616,7 @@ public:
                     std::string status = ask("Status (Active / Injured / Benched / Suspended)", p->getPlayingStatus());
 
                     t->updatePlayer(pId, name, age, pos, jersey, status);
+                    DataPersistence::savePlayers(league, "kpfl_players.txt");
                     std::cout << "\n[SUCCESS] Updated player " << name << " (#" << jersey << ").\n";
                     pausePrompt();
                 } else if (ch == 8) {
@@ -683,6 +680,7 @@ public:
 
                     auto s = new Stadium(sId, name, loc, cap, cond);
                     league.addStadium(s);
+                    DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
                     std::cout << "\n[SUCCESS] Registered stadium " << name << "!\n";
                     pausePrompt();
                 } else if (ch == 3) {
@@ -709,6 +707,7 @@ public:
 
                     s->setSeatingCapacity(cap);
                     s->setFieldCondition(cond);
+                    DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
                     std::cout << "\n[SUCCESS] Stadium " << s->getName() << " updated successfully!\n";
                     pausePrompt();
                 } else if (ch == 4) {
@@ -913,6 +912,7 @@ public:
                     std::cout << "Enter Team Reg No (from list above, or 'League'): "; std::getline(std::cin, team);
 
                     shop.addProduct(std::make_unique<Merchandise>(pId, name, price, stock, size, team));
+                    DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     std::cout << "\n[SUCCESS] Added merchandise '" << name << "' to shop inventory!\n";
                     pausePrompt();
                 } else if (ch == 3) {
@@ -930,6 +930,7 @@ public:
                     clearInput();
 
                     shop.addProduct(std::make_unique<FoodItem>(pId, name, price, stock, isBev == 1));
+                    DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     std::cout << "\n[SUCCESS] Added food/beverage item to shop!\n";
                     pausePrompt();
                 } else if (ch == 4) {
@@ -958,6 +959,8 @@ public:
                         clearScreen();
                         Receipt r = shop.processSale(custName, cart, cash);
                         StadiumShop::printReceipt(r);
+                        DataPersistence::saveTransactions(shop, "kpfl_shop_receipts.txt");
+                        DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     } else {
                         clearInput();
                         std::cout << "\nCart was empty. No transaction processed.\n";
@@ -974,7 +977,9 @@ public:
                 } else if (ch == 6) {
                     clearScreen();
                     DataPersistence::saveTeams(league, "kpfl_teams.txt");
+                    DataPersistence::savePlayers(league, "kpfl_players.txt");
                     DataPersistence::saveStadiums(league, "kpfl_stadiums.txt");
+                    DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
                     DataPersistence::saveShopInventory(shop, "kpfl_shop_inventory.txt");
                     DataPersistence::saveTransactions(shop, "kpfl_shop_receipts.txt");
                     std::cout << "\n[SUCCESS] System data exported to kpfl_*.txt files!\n";

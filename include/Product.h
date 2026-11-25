@@ -21,6 +21,10 @@ public:
         if (id.empty() || name.empty()) throw std::invalid_argument("Product ID and Name cannot be empty.");
         if (price < 0.0) throw std::invalid_argument("Product price cannot be negative.");
         if (stock < 0) throw std::invalid_argument("Stock quantity cannot be negative.");
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((id + name).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Product details cannot contain '|' or line breaks.");
+        }
     }
 
     virtual ~Product() = default;

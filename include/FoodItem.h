@@ -16,7 +16,12 @@ public:
     FoodItem(const std::string& id, const std::string& name, double price, int stock,
              bool isBeverage, bool isPerishable = true, const std::string& expiry = "Today")
         : Product(id, name, price, stock, "FoodItem"),
-          isBeverage(isBeverage), isPerishable(isPerishable), expiryDate(expiry) {}
+          isBeverage(isBeverage), isPerishable(isPerishable), expiryDate(expiry) {
+        // '|' separates fields in the save file, so it can't appear inside one
+        if ((expiry).find_first_of("|\r\n") != std::string::npos) {
+            throw std::invalid_argument("Product details cannot contain '|' or line breaks.");
+        }
+    }
 
     bool getIsBeverage() const { return isBeverage; }
     bool getIsPerishable() const { return isPerishable; }
