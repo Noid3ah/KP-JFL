@@ -26,3 +26,6 @@ Makefile
 
 # User credential file — contains passwords, keep off version control
 kpfl_users.txt
+
+# Report file — contains internal project info, keep local only
+output/REPORT.txt
