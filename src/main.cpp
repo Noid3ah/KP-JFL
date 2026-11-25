@@ -266,7 +266,15 @@ void runAutomatedTestSuite(FootballLeague& league,
         before.addSpectator(&fan);
     });
 
-    std::cout << "\n[ALL 24 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
+    // 25. Match dates and times must be real
+    bool datesOk = isValidDate("2026-12-05") && isValidDate("2028-02-29")
+        && !isValidDate("2026-02-29") && !isValidDate("2026-13-01") && !isValidDate("2026-04-31")
+        && !isValidDate("2026-00-10") && !isValidDate("2026-1-5") && !isValidDate("banana") && !isValidDate("")
+        && isValidTime("00:00") && isValidTime("23:59")
+        && !isValidTime("24:00") && !isValidTime("12:60") && !isValidTime("9:00") && !isValidTime("");
+    std::cout << (datesOk ? "[PASS]" : "[FAIL]") << " Date and time checks\n";
+
+    std::cout << "\n[ALL 25 BUSINESS RULES & EXCEPTIONS PASSED VERIFICATION]\n";
 }
 
 int main(int argc, char* argv[]) {

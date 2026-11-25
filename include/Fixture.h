@@ -14,6 +14,33 @@
 // tracks whether a match is still upcoming or has been played
 enum class FixtureStatus { SCHEDULED, COMPLETED };
 
+// checks that text matches a pattern where 'd' stands for any digit
+inline bool matchesDigits(const std::string& text, const std::string& pattern) {
+    if (text.size() != pattern.size()) return false;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const bool digit = text[i] >= '0' && text[i] <= '9';
+        if (pattern[i] == 'd' ? !digit : text[i] != pattern[i]) return false;
+    }
+    return true;
+}
+
+// a real calendar date as YYYY-MM-DD
+inline bool isValidDate(const std::string& date) {
+    if (!matchesDigits(date, "dddd-dd-dd")) return false;
+    const int year = std::stoi(date.substr(0, 4));
+    const int month = std::stoi(date.substr(5, 2));
+    const int day = std::stoi(date.substr(8, 2));
+    if (year < 1 || month < 1 || month > 12) return false;
+    const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    const int days[] = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    return day >= 1 && day <= days[month - 1];
+}
+
+// a 24-hour time as HH:MM
+inline bool isValidTime(const std::string& time) {
+    return matchesDigits(time, "dd:dd") && std::stoi(time.substr(0, 2)) < 24 && std::stoi(time.substr(3, 2)) < 60;
+}
+
 // One scheduled match — holds pointers to the two teams and the venue.
 // Owns the result and ticket objects for this game.
 class Fixture {

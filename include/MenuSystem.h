@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <limits>
 #include <cstdlib>
+#include <cctype>
 #include "AuthService.h"
 #include "FootballLeague.h"
 #include "LeagueCommissioner.h"
@@ -51,11 +52,90 @@ private:
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 
+    static std::string toLower(std::string text) {
+        for (char& ch : text) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return text;
+    }
+
+    // reads one trimmed line; typing 'cancel' backs out of the form
+    std::string readLine() {
+        std::string in;
+        if (!std::getline(std::cin, in)) throw InputCancelled{};
+        const auto first = in.find_first_not_of(" \t\r");
+        in = first == std::string::npos ? "" : in.substr(first, in.find_last_not_of(" \t\r") - first + 1);
+        if (toLower(in) == "cancel") throw InputCancelled{};
+        return in;
+    }
+
+    // keeps asking until check() returns no error message
+    // if a current value is given, pressing Enter keeps it
+    template <typename Check>
+    std::string askUntil(const std::string& label, const std::string& current, Check check) {
+        while (true) {
+            std::cout << label << (current.empty() ? "" : " [" + current + "]") << ": ";
+            std::string in = readLine();
+            if (in.empty() && !current.empty()) return current;
+            const std::string error = check(in);
+            if (error.empty()) return in;
+            std::cout << "[ERROR] " << error << "\n";
+        }
+    }
+
+    std::string askText(const std::string& label, const std::string& current = "") {
+        return askUntil(label, current, [](const std::string& in) {
+            return std::string(in.empty() ? "This cannot be blank." : in.find('|') != std::string::npos ? "'|' is not allowed." : "");
+        });
+    }
+
+    std::string askOptional(const std::string& label) {
+        return askUntil(label, "", [](const std::string& in) {
+            return std::string(in.find('|') != std::string::npos ? "'|' is not allowed." : "");
+        });
+    }
+
+    std::string askId(const std::string& label) {
+        return askUntil(label, "", [](const std::string& in) {
+            return std::string(in.empty() || in.find_first_of(" \t|") != std::string::npos
+                                   ? "Enter an ID without spaces or '|'." : "");
+        });
+    }
+
+    int askInt(const std::string& label, int min, int max, const std::string& current = "") {
+        const std::string text = askUntil(label, current, [&](const std::string& in) {
+            std::istringstream ss(in);
+            int v;
+            const bool whole = (ss >> v) && (ss >> std::ws).eof();
+            return std::string(whole && v >= min && v <= max ? ""
+                : "Enter a whole number from " + std::to_string(min) + " to " + std::to_string(max) + ".");
+        });
+        return std::stoi(text);
+    }
+
+    double askMoney(const std::string& label) {
+        const std::string text = askUntil(label, "", [](const std::string& in) {
+            const bool ok = !in.empty() && in.size() <= 12 && in.find_first_not_of("0123456789.") == std::string::npos
+                && in != "." && in.find('.') == in.rfind('.');
+            return std::string(ok ? "" : "Enter an amount such as 8500 or 8500.50.");
+        });
+        return std::stod(text);
+    }
+
+    std::string askDate(const std::string& label) {
+        return askUntil(label, "", [](const std::string& in) {
+            return std::string(isValidDate(in) ? "" : "Enter a real date as YYYY-MM-DD, e.g. 2026-12-05.");
+        });
+    }
+
+    std::string askTime(const std::string& label) {
+        return askUntil(label, "", [](const std::string& in) {
+            return std::string(isValidTime(in) ? "" : "Enter a 24-hour time as HH:MM, e.g. 15:00.");
+        });
+    }
+
     // shows a numbered list and returns the chosen index, asking again until the number is valid
     // if a current value is given, pressing Enter keeps it and -1 is returned
     int pick(const std::string& title, const std::vector<std::string>& options, const std::string& current = "") {
         if (options.empty()) throw std::runtime_error(title + ": nothing to choose from yet.");
-        if (std::cin.fail() && !std::cin.eof()) std::cin.clear(); // an earlier number field was mistyped
 
         std::cout << "\n" << title << (current.empty() ? "" : " [" + current + "]") << ":\n";
         for (std::size_t i = 0; i < options.size(); ++i) {
@@ -64,10 +144,7 @@ private:
         while (true) {
             std::cout << "Enter number (1-" << options.size() << ", 0 to cancel"
                       << (current.empty() ? "" : ", Enter to keep") << "): ";
-            std::string in;
-            if (current.empty()) std::cin >> std::ws; // skip the newline left by an earlier field
-            if (!std::getline(std::cin, in)) throw InputCancelled{};
-            if (!in.empty() && in.back() == '\r') in.pop_back();
+            const std::string in = readLine();
             if (in.empty() && !current.empty()) return -1;
             if (!in.empty() && in.size() <= 4 && in.find_first_not_of("0123456789") == std::string::npos) {
                 const int n = std::stoi(in);
@@ -89,8 +166,7 @@ private:
         options.push_back("Other (type it in)");
         std::string choice = pickText(title, options);
         if (choice == options.back()) {
-            std::cout << "Enter " << title << ": ";
-            std::getline(std::cin, choice);
+            choice = askText("Enter " + title);
         }
         return choice;
     }
@@ -190,15 +266,18 @@ public:
             clearInput();
             return false;
         }
+        clearInput();
 
         if (choice == 2) return false;
 
         std::string username, password;
-        std::cout << "\nEnter Username: ";
-        std::cin >> username;
-        std::cout << "Enter Password: ";
-        std::cin >> password;
-        clearInput();
+        try {
+            std::cout << "\nType 'cancel' to go back.\n";
+            username = askText("Enter Username");
+            password = askText("Enter Password");
+        } catch (const InputCancelled&) {
+            return true; // back to the login page
+        }
 
         currentUser = auth.login(username, password);
         if (currentUser) {
@@ -359,15 +438,15 @@ public:
                     pausePrompt();
                 } else if (ch == 3) {
                     clearScreen();
-                    std::cout << "=== SCHEDULE NEW FIXTURE ===\n\n";
+                    std::cout << "=== SCHEDULE NEW FIXTURE ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* home = pickTeam("Home Team");
                     FootballTeam* away = pickTeam("Away Team", home);
                     Stadium* stad = pickStadium();
 
                     std::string date, time;
-                    std::cout << "\nEnter Date (YYYY-MM-DD, e.g. 2026-12-05): "; std::cin >> date;
-                    std::cout << "Enter Time (HH:MM, e.g. 15:00): "; std::cin >> time;
-                    clearInput();
+                    std::cout << "\n";
+                    date = askDate("Enter Date (YYYY-MM-DD, e.g. 2026-12-05)");
+                    time = askTime("Enter Time (HH:MM, e.g. 15:00)");
 
                     Fixture& fx = league.scheduleFixture(home, away, stad, date, time);
                     DataPersistence::saveFixtures(league, "kpfl_fixtures.txt");
@@ -376,7 +455,7 @@ public:
                     pausePrompt();
                 } else if (ch == 4) {
                     clearScreen();
-                    std::cout << "=== ASSIGN MATCH OFFICIAL ===\n\n";
+                    std::cout << "=== ASSIGN MATCH OFFICIAL ===\nType 'cancel' at any time to go back.\n\n";
                     const std::string fxId = pickFixture().getFixtureId();
                     const std::string offId = pickFrom("Official", league.getOfficials(), [](const MatchOfficial* o) {
                         return "[" + o->getId() + "] " + o->getName() + " (" + o->getRole() + ", " + o->getRank() + ")";
@@ -388,12 +467,12 @@ public:
                     pausePrompt();
                 } else if (ch == 5) {
                     clearScreen();
-                    std::cout << "=== RECORD MATCH RESULT ===\n\n";
+                    std::cout << "=== RECORD MATCH RESULT ===\nType 'cancel' at any time to go back.\n\n";
                     const std::string fxId = pickFixture().getFixtureId();
                     int homeScore, awayScore;
-                    std::cout << "\nEnter Home Team Score: "; std::cin >> homeScore;
-                    std::cout << "Enter Away Team Score: "; std::cin >> awayScore;
-                    clearInput();
+                    std::cout << "\n";
+                    homeScore = askInt("Enter Home Team Score", 0, 99);
+                    awayScore = askInt("Enter Away Team Score", 0, 99);
 
                     league.recordResult(fxId, homeScore, awayScore);
                     // fixtures first: if the second save fails, the result still can't be counted twice
@@ -403,12 +482,12 @@ public:
                     pausePrompt();
                 } else if (ch == 6) {
                     clearScreen();
-                    std::cout << "=== INSPECT FIXTURE READINESS ===\n\n";
+                    std::cout << "=== INSPECT FIXTURE READINESS ===\nType 'cancel' at any time to go back.\n\n";
                     commissioner.inspectMatch(pickFixture());
                     pausePrompt();
                 } else if (ch == 7) {
                     clearScreen();
-                    std::cout << "=== SUSPEND / REINSTATE TEAM ===\n\n";
+                    std::cout << "=== SUSPEND / REINSTATE TEAM ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
                     const bool suspend = pick("Action", {"Suspend", "Reinstate"}) == 0;
 
@@ -470,11 +549,23 @@ public:
                     pausePrompt();
                 } else if (ch == 2) {
                     clearScreen();
-                    std::cout << "=== REGISTER NEW TEAM ===\n\n";
+                    std::cout << "=== REGISTER NEW TEAM ===\nType 'cancel' at any time to go back.\n\n";
                     std::string regNo, name, city;
-                    std::cout << "Enter Registration Number (e.g. T07): "; std::cin >> regNo;
-                    clearInput();
-                    std::cout << "Enter Team Name: "; std::getline(std::cin, name);
+                    std::cout << "Teams already registered:\n";
+                    for (const auto* t : league.getTeams()) {
+                        std::cout << "  - [" << t->getRegNumber() << "] " << t->getName() << " (" << t->getHomeCity() << ")\n";
+                    }
+                    std::cout << "\n";
+                    while (true) {
+                        regNo = askId("Enter Registration Number (e.g. T07)");
+                        const FootballTeam* taken = nullptr;
+                        for (const auto* t : league.getTeams()) {
+                            if (toLower(t->getRegNumber()) == toLower(regNo)) taken = t; // t01 counts as T01
+                        }
+                        if (!taken) break;
+                        std::cout << "[ERROR] " << regNo << " already belongs to " << taken->getName() << ". Choose another.\n";
+                    }
+                    name = askText("Enter Team Name");
                     city = pickParish("City/Parish");
 
                     auto newTeam = new FootballTeam(regNo, name, city);
@@ -485,20 +576,18 @@ public:
                     pausePrompt();
                 } else if (ch == 3) {
                     clearScreen();
-                    std::cout << "=== ADD PLAYER TO SQUAD ===\n\n";
+                    std::cout << "=== ADD PLAYER TO SQUAD ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
                     std::string pId, pName, pos, gender;
                     int age, jersey;
 
                     std::cout << "\nAdding player to " << t->getName() << ":\n";
-                    std::cout << "Enter New Player ID (e.g. PL010): "; std::cin >> pId;
-                    clearInput();
-                    std::cout << "Enter Player Name: "; std::getline(std::cin, pName);
-                    std::cout << "Enter Age (Rule: Must be >= 16): "; std::cin >> age;
+                    pId = askId("Enter New Player ID (e.g. PL010)");
+                    pName = askText("Enter Player Name");
+                    age = askInt("Enter Age (Rule: Must be >= 16)", 16, 120);
                     gender = pickGender();
                     pos = pickPosition();
-                    std::cout << "Enter Jersey Number (1-99, cannot conflict): "; std::cin >> jersey;
-                    clearInput();
+                    jersey = askInt("Enter Jersey Number (1-99, cannot conflict)", 1, 99);
 
                     Player p(pId, pName, age, gender, pos, jersey);
                     t->addPlayer(p);
@@ -507,21 +596,19 @@ public:
                     pausePrompt();
                 } else if (ch == 4) {
                     clearScreen();
-                    std::cout << "=== ADD COACH TO TEAM ===\n\n";
+                    std::cout << "=== ADD COACH TO TEAM ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
                     std::string cId, cName, qual, role, gender;
                     int age, exp;
 
                     std::cout << "\nAdding coach to " << t->getName() << ":\n";
-                    std::cout << "Enter New Coach ID (e.g. CO03): "; std::cin >> cId;
-                    clearInput();
-                    std::cout << "Enter Coach Name: "; std::getline(std::cin, cName);
-                    std::cout << "Enter Age (Rule: Must be >= 21): "; std::cin >> age;
+                    cId = askId("Enter New Coach ID (e.g. CO03)");
+                    cName = askText("Enter Coach Name");
+                    age = askInt("Enter Age (Rule: Must be >= 21)", 21, 120);
                     gender = pickGender();
                     qual = pickOrType("Qualification", {"CONCACAF Pro", "CONCACAF A", "CONCACAF B", "FIFA Elite License", "UEFA A License"});
                     role = pickOrType("Role", {"Head Coach", "Assistant Coach", "Goalkeeping Coach", "Fitness Coach"});
-                    std::cout << "Enter Years Experience: "; std::cin >> exp;
-                    clearInput();
+                    exp = askInt("Enter Years Experience", 0, 80);
 
                     Coach c(cId, cName, age, gender, qual, role, exp);
                     t->addCoach(c);
@@ -530,7 +617,7 @@ public:
                     pausePrompt();
                 } else if (ch == 5) {
                     clearScreen();
-                    std::cout << "=== REMOVE PLAYER FROM SQUAD ===\n\n";
+                    std::cout << "=== REMOVE PLAYER FROM SQUAD ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
                     const std::string pId = pickPlayer(*t).getId();
 
@@ -540,37 +627,21 @@ public:
                     pausePrompt();
                 } else if (ch == 6) {
                     clearScreen();
-                    std::cout << "=== SEARCH TEAM DETAILS ===\n\n";
+                    std::cout << "=== SEARCH TEAM DETAILS ===\nType 'cancel' at any time to go back.\n\n";
                     pickTeam()->displayTeamInfo();
                     pausePrompt();
                 } else if (ch == 7) {
                     clearScreen();
-                    std::cout << "=== UPDATE PLAYER DETAILS ===\n\n";
+                    std::cout << "=== UPDATE PLAYER DETAILS ===\nType 'cancel' at any time to go back.\n\n";
                     FootballTeam* t = pickTeam();
                     const Player* p = &pickPlayer(*t);
                     const std::string pId = p->getId();
 
-                    // blank input keeps the current value
-                    auto ask = [](const std::string& label, const std::string& current) {
-                        std::string in;
-                        std::cout << label << " [" << current << "]: ";
-                        std::getline(std::cin, in);
-                        return in.empty() ? current : in;
-                    };
-                    auto askInt = [&](const std::string& label, int current) {
-                        std::istringstream ss(ask(label, std::to_string(current)));
-                        int v;
-                        if (!(ss >> v) || !(ss >> std::ws).eof()) {
-                            throw std::invalid_argument(label + " must be a whole number.");
-                        }
-                        return v;
-                    };
-
                     std::cout << "\nPress Enter to keep the current value.\n";
-                    std::string name = ask("Name", p->getName());
-                    int age = askInt("Age (>= 16)", p->getAge());
+                    std::string name = askText("Name", p->getName());
+                    int age = askInt("Age (>= 16)", 16, 120, std::to_string(p->getAge()));
                     std::string pos = pickPosition(p->getPosition());
-                    int jersey = askInt("Jersey Number (1-99)", p->getJerseyNumber());
+                    int jersey = askInt("Jersey Number (1-99)", 1, 99, std::to_string(p->getJerseyNumber()));
                     std::string status = pickText("Status", {"Active", "Injured", "Benched", "Suspended"}, p->getPlayingStatus());
 
                     t->updatePlayer(pId, name, age, pos, jersey, status);
@@ -628,14 +699,13 @@ public:
                     pausePrompt();
                 } else if (ch == 2) {
                     clearScreen();
-                    std::cout << "=== REGISTER NEW STADIUM ===\n\n";
+                    std::cout << "=== REGISTER NEW STADIUM ===\nType 'cancel' at any time to go back.\n\n";
                     std::string sId, name, loc, cond;
                     int cap;
-                    std::cout << "Enter Stadium ID (e.g. S03): "; std::cin >> sId;
-                    clearInput();
-                    std::cout << "Enter Stadium Name: "; std::getline(std::cin, name);
+                    sId = askId("Enter Stadium ID (e.g. S03)");
+                    name = askText("Enter Stadium Name");
                     loc = pickParish("Location");
-                    std::cout << "Enter Seating Capacity: "; std::cin >> cap;
+                    cap = askInt("Enter Seating Capacity", 1, 1000000);
                     cond = pickCondition();
 
                     auto s = new Stadium(sId, name, loc, cap, cond);
@@ -645,10 +715,11 @@ public:
                     pausePrompt();
                 } else if (ch == 3) {
                     clearScreen();
-                    std::cout << "=== UPDATE STADIUM INFO ===\n\n";
+                    std::cout << "=== UPDATE STADIUM INFO ===\nType 'cancel' at any time to go back.\n\n";
                     Stadium* s = pickStadium();
                     int cap;
-                    std::cout << "\nEnter New Capacity (e.g. 40000): "; std::cin >> cap;
+                    std::cout << "\n";
+                    cap = askInt("Enter New Capacity (e.g. 40000)", 1, 1000000);
                     const std::string cond = pickCondition();
 
                     s->setSeatingCapacity(cap);
@@ -658,13 +729,13 @@ public:
                     pausePrompt();
                 } else if (ch == 4) {
                     clearScreen();
-                    std::cout << "=== GENERATE TICKETS FOR FIXTURE ===\n\n";
+                    std::cout << "=== GENERATE TICKETS FOR FIXTURE ===\nType 'cancel' at any time to go back.\n\n";
                     Fixture& fx = pickFixture();
                     int bleachers, grandstand, vip;
-                    std::cout << "\nNumber of Bleachers Tickets ($1,500): "; std::cin >> bleachers;
-                    std::cout << "Number of Grandstand Tickets ($3,500): "; std::cin >> grandstand;
-                    std::cout << "Number of VIP Tickets ($7,000): "; std::cin >> vip;
-                    clearInput();
+                    std::cout << "\n";
+                    bleachers = askInt("Number of Bleachers Tickets ($1,500)", 0, 1000000);
+                    grandstand = askInt("Number of Grandstand Tickets ($3,500)", 0, 1000000);
+                    vip = askInt("Number of VIP Tickets ($7,000)", 0, 1000000);
 
                     fx.generateTickets(bleachers, grandstand, vip);
                     DataPersistence::saveTickets(league, "kpfl_tickets.txt");
@@ -672,7 +743,7 @@ public:
                     pausePrompt();
                 } else if (ch == 5) {
                     clearScreen();
-                    std::cout << "=== SELL TICKET TO SPECTATOR ===\n\n";
+                    std::cout << "=== SELL TICKET TO SPECTATOR ===\nType 'cancel' at any time to go back.\n\n";
 
                     Fixture& fx = pickFixture();
                     if (fx.getTickets().empty()) {
@@ -696,17 +767,16 @@ public:
                     pausePrompt();
                 } else if (ch == 6) {
                     clearScreen();
-                    std::cout << "=== REGISTER SPECTATOR ===\n\n";
+                    std::cout << "=== REGISTER SPECTATOR ===\nType 'cancel' at any time to go back.\n\n";
 
                     std::string spId, name, gender, email, phone, prefTeam;
                     int age;
-                    std::cout << "Enter New Spectator ID (e.g. SP03, SP04): "; std::cin >> spId;
-                    clearInput();
-                    std::cout << "Enter Full Name: "; std::getline(std::cin, name);
-                    std::cout << "Enter Age: "; std::cin >> age;
+                    spId = askId("Enter New Spectator ID (e.g. SP03, SP04)");
+                    name = askText("Enter Full Name");
+                    age = askInt("Enter Age", 1, 120);
                     gender = pickGender();
-                    std::cout << "Enter Email Address: "; std::getline(std::cin, email);
-                    std::cout << "Enter Phone Number: "; std::getline(std::cin, phone);
+                    email = askOptional("Enter Email Address");
+                    phone = askOptional("Enter Phone Number");
                     std::vector<std::string> fanOptions;
                     for (const auto* t : league.getTeams()) fanOptions.push_back(t->getName());
                     fanOptions.push_back("Neutral");
@@ -772,16 +842,15 @@ public:
                     pausePrompt();
                 } else if (ch == 2) {
                     clearScreen();
-                    std::cout << "=== ADD NEW MERCHANDISE ===\n\n";
+                    std::cout << "=== ADD NEW MERCHANDISE ===\nType 'cancel' at any time to go back.\n\n";
 
                     std::string pId, name, size, team;
                     double price;
                     int stock;
-                    std::cout << "Enter Product ID (e.g. M03, M04): "; std::cin >> pId;
-                    clearInput();
-                    std::cout << "Enter Item Name (e.g. Cavalier SC Home Jersey): "; std::getline(std::cin, name);
-                    std::cout << "Enter Price in JMD (e.g. 8500): "; std::cin >> price;
-                    std::cout << "Enter Stock Quantity (e.g. 30): "; std::cin >> stock;
+                    pId = askId("Enter Product ID (e.g. M03, M04)");
+                    name = askText("Enter Item Name (e.g. Cavalier SC Home Jersey)");
+                    price = askMoney("Enter Price in JMD (e.g. 8500)");
+                    stock = askInt("Enter Stock Quantity (e.g. 30)", 0, 1000000);
                     size = pickText("Size", {"S", "M", "L", "XL", "Standard"});
                     std::vector<std::string> teamOptions;
                     for (const auto* t : league.getTeams()) teamOptions.push_back("[" + t->getRegNumber() + "] " + t->getName());
@@ -795,15 +864,14 @@ public:
                     pausePrompt();
                 } else if (ch == 3) {
                     clearScreen();
-                    std::cout << "=== ADD NEW FOOD / BEVERAGE ===\n\n";
+                    std::cout << "=== ADD NEW FOOD / BEVERAGE ===\nType 'cancel' at any time to go back.\n\n";
                     std::string pId, name;
                     double price;
                     int stock;
-                    std::cout << "Enter Product ID (e.g. F04): "; std::cin >> pId;
-                    clearInput();
-                    std::cout << "Enter Item Name: "; std::getline(std::cin, name);
-                    std::cout << "Enter Price (JMD): "; std::cin >> price;
-                    std::cout << "Enter Stock Quantity: "; std::cin >> stock;
+                    pId = askId("Enter Product ID (e.g. F04)");
+                    name = askText("Enter Item Name");
+                    price = askMoney("Enter Price (JMD)");
+                    stock = askInt("Enter Stock Quantity", 0, 1000000);
                     const bool isBev = pick("Type", {"Food", "Beverage"}) == 1;
 
                     shop.addProduct(std::make_unique<FoodItem>(pId, name, price, stock, isBev));
@@ -812,9 +880,9 @@ public:
                     pausePrompt();
                 } else if (ch == 4) {
                     clearScreen();
-                    std::cout << "=== PROCESS CUSTOMER SALE ===\n\n";
+                    std::cout << "=== PROCESS CUSTOMER SALE ===\nType 'cancel' at any time to go back.\n\n";
                     std::string custName;
-                    std::cout << "Enter Customer Name: "; std::getline(std::cin, custName);
+                    custName = askText("Enter Customer Name");
 
                     std::vector<std::pair<std::string, int>> cart;
                     while (true) {
@@ -829,17 +897,14 @@ public:
                         const std::size_t choice = pick("Product (" + std::to_string(cart.size()) + " in cart)", options);
                         if (choice == options.size() - 1) break;
 
-                        int qty;
-                        std::cout << "Enter Quantity: ";
-                        if (!(std::cin >> qty)) qty = 0; // rejected by processSale
-                        clearInput();
+                        const int qty = askInt("Enter Quantity", 1, 1000000);
                         cart.push_back({shop.getInventory()[choice]->getProductId(), qty});
                     }
 
                     if (!cart.empty()) {
                         double cash;
-                        std::cout << "\nEnter Cash Tendered (JMD): "; std::cin >> cash;
-                        clearInput();
+                        std::cout << "\n";
+                        cash = askMoney("Enter Cash Tendered (JMD)");
 
                         clearScreen();
                         Receipt r = shop.processSale(custName, cart, cash);
